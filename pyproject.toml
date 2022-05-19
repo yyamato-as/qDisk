@@ -12,12 +12,15 @@ astropy = "^5.0.4"
 matplotlib = "^3.5.2"
 bettermoments = "^1.6.3"
 ipython = "^8.3.0"
-dask = {extras = ["complete"], version = "^2022.5.0"}
+casatasks = "^6.4.4"
+casadata = "^2022.1.17"
+casatools = "^6.4.4"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
 black = {version = "^22.3.0", allow-prereleases = true}
 ipykernel = "^6.13.0"
+ipympl = "^0.9.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

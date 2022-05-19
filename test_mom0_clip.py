@@ -19,7 +19,7 @@ outfile = "/raid/work/yamato/eDisk_data/L1489IRS/data_product_test/{:s}_SBLB_{:s
     source, ms
 )
 
-r = 5  # in arcsec
+r = 20  # in arcsec
 
 moment = 0
 clips = ["noclip", "1sigma", "2sigma", "3sigma"]
@@ -37,6 +37,7 @@ title = {"noclip": "no clip",
          }
 vel_range = "{:.1f} km/s - {:.1f} km/s".format(*[v for v in source_dict[source]["emission_extent"][ms]])
 
+# mom0 generation
 # for clip in clips:
 #     dp.calculate_moment(
 #         imagepath=imagepath, moments=[moment], verbose=True, nchunks=4, save=True, savefilepath=outfile, **kwargs[clip]
@@ -58,9 +59,10 @@ for i, (clip, ax) in enumerate(zip(clips, axes)):
         distance=source_dict[source]["distance"],
         unit=unit,
         cmap=cpal,
-        norm_kwargs=dict(vmin=0.0, vmax=40, stretch=AsinhStretch(a=0.1))
+        norm_kwargs=dict(vmin=0.0, vmax=40)#, stretch=AsinhStretch(a=0.1))
     )
     ax.set(xlim=(r, -r), ylim=(-r, r), title=title[clip])
 
 fig.suptitle(vel_range)
-fig.savefig("./figure/mom0_clip_comparison_asinhstretch.png", dpi=300, bbox_inches="tight", pad_inches=0.01)
+# fig.savefig("./figure/mom0_clip_comparison_asinhstretch.png", dpi=300, bbox_inches="tight", pad_inches=0.01)
+plt.show()

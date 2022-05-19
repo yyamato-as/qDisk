@@ -1,9 +1,10 @@
 import seaborn as sns
-import utils
+import qdisk.utils as utils
 import astropy.io.fits as fits
 from astropy.visualization import ImageNormalize
-from matplotlib.colors import Colormap 
+from qdisk.classes import FitsImage
 import numpy as np
+import scipy.constants as sc
 
 ### color pallet
 from matplotlib import colors
@@ -11,30 +12,35 @@ freeze = np.loadtxt('/home/yamato/Project/MAPS/script/MAPS_cmap.txt')
 freeze /= 255.0
 cpal = colors.ListedColormap(freeze, name='freeze')
 
+cmap = {"continuum": "inferno", 0: cpal, 1: "RdBu_r", 8: "gist_heat"}
+
 
 def plot_map(
     fitsname,
     ax,
     center_coord=None,
+    data_scaling_factor=1.0,
     scale=50,
     distance=140,
-    unit=r"mJy beam$^{-1}$",
     cmap=None,
+    colorbar=True,
     norm_kwargs=dict(),
+    cbar_kw=dict(),
+    beam_kw=dict(),
+    sbar_kw=dict()
 ):
 
     # read FITS
-    header = fits.getheader(fitsname)
-    data = fits.getdata(fitsname).squeeze()
+    image = FitsImage(fitsname)
+    data = image.data * data_scaling_factor
 
-    if data.ndim != 2:
+    if image.ndim != 2:
         raise ValueError("The data is not in 2D.")
 
     # generate directional axis
-    x, y = utils.get_radec_coord(header, center_coord=center_coord)
+    image.get_directional_coord(center_coord=center_coord)
 
-    # get beam data and scale
-    beam = utils.fetch_beam_info(header, pa_rotate=True)
+    # scale bar
     scale = (scale / distance, "{} au".format(int(scale)))
 
     # normalization
@@ -43,15 +49,62 @@ def plot_map(
     # plot
     utils.plot_2D_map(
         data=data,
-        X=x,
-        Y=y,
+        X=image.x,
+        Y=image.y,
         ax=ax,
         cmap=True,
         cmap_method="pcolorfast",
         contour=False,
-        colorbar=True,
-        beam=beam,
+        colorbar=colorbar,
+        beam=image.beam,
         scale=scale,
         cmap_kw=dict(cmap=cmap, norm=norm),
-        cbar_kw=dict(label=unit)
+        cbar_kw=cbar_kw,
+        beam_kw=beam_kw,
+        sbar_kw=sbar_kw
     )
+
+def overlay_contour(fitsname, 
+    ax, 
+    center_coord=None, 
+    data_scaling_factor=1.0,
+    levels=None,
+    colors="black"
+    ):
+
+    image = FitsImage(fitsname)
+    data = image.data * data_scaling_factor
+
+    image.get_directional_coord(center_coord=center_coord)
+
+    utils.plot_2D_map(
+        data=data,
+        X=image.x,
+        Y=image.y,
+        ax=ax,
+        cmap=False,
+        contour=True,
+        colorbar=False,
+        contour_kw=dict(levels=levels, colors=colors)
+    )
+
+
+def plot_radial_profile(filename, ax, color="tab:blue", normalize=False, scale=1.0, label=None):
+
+    x, y, dy = np.loadtxt(filename, unpack=True)
+
+    if normalize:
+        dy /= y.max()
+        y /= y.max()
+
+    y *= scale
+    dy *= scale
+
+    ax.plot(x, y, color=color, label=label)
+    ax.fill_between(x, y-dy, y+dy, facecolor=color, alpha=0.25, edgecolor=None)
+    # ax.axhline(y=0.0, color="gray", ls="dashed")
+
+    ax.set_aspect(1./ax.get_data_ratio()/sc.golden_ratio)
+    ax.set(xlim=(x.min(), x.max()), ylim=(-dy.mean(), None))
+
+

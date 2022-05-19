@@ -1,14 +1,16 @@
 # ver0; based on SourceList_noCam_sai.pdf
 source_dict = {
     "L1489IRS": {
-        "radec": "04h04m43.08s 26d18m56.10s",
+        "radec": "04h04m43.079964s 26d18m56.118528s", # from 2D Gaussian fit to SB+LB data with robust=1.0 
         "distance": 140,
+        "PA": 69, # Sai et al. 2020
+        "incl": 73, # Sai et al. 2020
         "v_sys": 7.3, # LSR systemic velocity in km/s; Sai et al. 2020
         "emission_extent": {"12CO": (-6.0, 22),
                             "13CO": (-0.20, 14),
                             "C18O": (1.6, 12.8),
                             "SO": (4.3, 10.7),
-                            } # inspected on casaviewer by eye in robust=0.5 images in km/s
+                            } # inspected on casaviewer by eye in robust=0.5 SB+LB images in km/s
     },
     "IRAS04169": {
         "radec": "04h19m58.449s  27d09m56.936s", # Takakuwa et al. 2018 (2D Gaussian fit)

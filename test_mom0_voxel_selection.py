@@ -19,7 +19,7 @@ outfile = "/raid/work/yamato/eDisk_data/L1489IRS/data_product_test/{:s}_SBLB_{:s
     source, ms
 )
 
-r = 5  # in arcsec
+r = 20  # in arcsec
 
 moment = 0
 methods = ["noselection", "vrange", "3sigmaclip", "3sigmaclip_noneg"]
@@ -34,6 +34,7 @@ title = {"noselection": "Whole cube",
          "3sigmaclip": r"3$\sigma$ clip (incl. absorption)",
          "3sigmaclip_noneg": r"3$\sigma$ clip (excl. absorption)"}
 
+# mom0 generation
 # for method in methods:
 #     dp.calculate_moment(
 #         imagepath=imagepath, moments=[moment], verbose=True, nchunks=4, save=True, savefilepath=outfile, **kwargs[method]
@@ -59,4 +60,5 @@ for i, (method, ax) in enumerate(zip(methods, axes)):
     )
     ax.set(xlim=(r, -r), ylim=(-r, r), title=title[method])
 
-fig.savefig("./figure/mom0_selection_comparison_asinhstretch.png", dpi=300, bbox_inches="tight", pad_inches=0.01)
+# fig.savefig("./figure/mom0_selection_comparison_asinhstretch.png", dpi=300, bbox_inches="tight", pad_inches=0.01)
+plt.show()
