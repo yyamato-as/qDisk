@@ -1,4 +1,4 @@
-from qdisk import data_product as dp
+from qdisk import product as dp
 from eDisk_source_dict import source_dict
 from astropy.coordinates import SkyCoord
 import matplotlib.pyplot as plt
@@ -86,5 +86,5 @@ for line in molecular_lines:
 
             tosave = np.stack((x, y, dy), axis=-1)
 
-            np.savetxt(savefilename, tosave, header="r [arcsec] \t I [Jy/beam km/s] \t dI [Jy/beam km/s]")
+            np.savetxt(savefilename, tosave, header="r [arcsec] \t I [mJy/beam km/s] \t dI [mJy/beam km/s]")
 

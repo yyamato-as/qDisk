@@ -1,5 +1,5 @@
 from numpy import source
-from qdisk import data_product as dp
+from qdisk import product as dp
 from eDisk_source_dict import source_dict
 from astropy.coordinates import SkyCoord
 from astropy.visualization import AsinhStretch
