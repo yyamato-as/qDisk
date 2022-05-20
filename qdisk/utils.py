@@ -24,9 +24,9 @@ ckms = ac.c.to(u.km/u.s).value
 
 arcsec = np.pi / 180. / 3600. # in rad
 
-if nologfile:
-    import os 
-    os.system("rm " + os.getcwd() + "/casa-*.log")
+# if nologfile:
+#     import os 
+#     os.system("rm " + os.getcwd() + "/casa-*.log")
 
 ### unit conversion ###
 
@@ -296,7 +296,7 @@ def plot_2D_map(
 
     ax.set_aspect(1./ax.get_data_ratio())
 
-    return fig, ax
+    return 
 
 
 #def plot_channel_maps(header, data)

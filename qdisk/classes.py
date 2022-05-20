@@ -39,7 +39,7 @@ class FitsImage:
         self.get_beam_info(in_arcsec=beam_in_arcsec)
 
         # frequency
-        if self.ndim > 2:
+        if "RESTFRQ" in self.header:
             self.restfreq = self.header["RESTFRQ"]
 
     def get_axes(self):

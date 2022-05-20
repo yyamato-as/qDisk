@@ -12,7 +12,7 @@ freeze = np.loadtxt('/home/yamato/Project/MAPS/script/MAPS_cmap.txt')
 freeze /= 255.0
 cpal = colors.ListedColormap(freeze, name='freeze')
 
-cmap = {"continuum": "inferno", 0: cpal, 1: "RdBu_r", 8: "gist_heat"}
+cmap = {"continuum": "inferno", "M0": cpal, "M1": "RdBu_r", "M8": "gist_heat"}
 
 
 def plot_map(
@@ -20,6 +20,7 @@ def plot_map(
     ax,
     center_coord=None,
     data_scaling_factor=1.0,
+    in_Tb=False,
     scale=50,
     distance=140,
     cmap=None,
@@ -33,6 +34,10 @@ def plot_map(
     # read FITS
     image = FitsImage(fitsname)
     data = image.data * data_scaling_factor
+
+    # any conversion
+    if in_Tb:
+        data = utils.jypb_to_K(data, image.restfreq, image.beam[:2])
 
     if image.ndim != 2:
         raise ValueError("The data is not in 2D.")
@@ -64,7 +69,8 @@ def plot_map(
         sbar_kw=sbar_kw
     )
 
-def overlay_contour(fitsname, 
+def overlay_contour(
+    fitsname, 
     ax, 
     center_coord=None, 
     data_scaling_factor=1.0,

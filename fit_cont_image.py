@@ -104,7 +104,7 @@ for i, val in enumerate(toplot):
         ax=ax,
         center_coord=center_coord,
         data_scaling_factor=1e3,
-        scale=59,
+        scale=50,
         distance=140,
         unit=r"mJy beam$^{-1}$" if i == 2 else None,
         cmap=cmap[val],
