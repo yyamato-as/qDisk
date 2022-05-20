@@ -1,10 +1,6 @@
-from multiprocessing.sharedctypes import Value
 import numpy as np
-import astropy.io.fits as fits
-import qdisk.utils as utils
 from qdisk.classes import FitsImage
 import bettermoments as bm
-from casatasks import impv
 from scipy.interpolate import griddata
 
 moment_method = {
@@ -16,7 +12,7 @@ moment_method = {
 deg_to_arcsec = 3600.
 
 def process_chunk_array(func, args, targname, nchunks=4, axis=0, concataxis=0, verbose=True):
-    """Processing the large array which is out-of-memory using chunking. Assume the function will return two arrays.
+    """Processing the large array which is out-of-memory using chunking. Assume the function will return two arrays. This should make the moment calculation faster!
 
     Parameters
     ----------
@@ -143,7 +139,7 @@ def calculate_moment(
         )
 
     # mask combination
-    print("Combining the mask...")
+    print("Combining the masks...")
     mask = bm.get_combined_mask(
         user_mask=mask, threshold_mask=tmask, channel_mask=cmask, combine="and"
     )
@@ -226,12 +222,12 @@ def calculate_averaged_spectra(imagename, **mask_kwargs):
     return image.v, avgspec
 
 
-def calculate_pvdiagram(imagename, center_coord=None, PA=90., incl=0.0, rrange=(-10.0, 10.0), vrange=None):
+def calculate_pvdiagram(imagename, center_coord=None, PA=90., rrange=(-10.0, 10.0), vrange=None):
     # fetch FitsImage class
     image = FitsImage(imagename)
 
     # construct projected and spectral axes
-    image.get_projected_coord(center_coord=center_coord, PA=PA, incl=incl)
+    image.get_projected_coord(center_coord=center_coord, PA=PA, incl=0.0)
     image.get_spectral_coord()
 
     # construct interpolate axes
@@ -239,10 +235,9 @@ def calculate_pvdiagram(imagename, center_coord=None, PA=90., incl=0.0, rrange=(
     y_ip = np.zeros_like(x_ip) # trace y = 0 on the projected coord
 
     # masking; as the data is huge, it is important to limit the region for calculation by applying a nominal mask to reduce the calculation time
-    x_pad = image.bmaj
-    y_pad = image.bmaj / np.cos(np.radians(incl))
-    x_mask = (image.x_proj >= rrange[0] - x_pad) & (image.x_proj <= rrange[1] + x_pad)
-    y_mask = (image.y_proj >= -y_pad) & (image.y_proj <= y_pad)
+    pad = image.bmaj
+    x_mask = (image.x_proj >= rrange[0] - pad) & (image.x_proj <= rrange[1] + pad)
+    y_mask = (image.y_proj >= -pad) & (image.y_proj <= pad)
 
     # chennel selection
     if vrange is None:
