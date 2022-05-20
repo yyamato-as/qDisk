@@ -4,6 +4,7 @@ import astropy.io.fits as fits
 import qdisk.utils as utils
 from qdisk.classes import FitsImage
 import bettermoments as bm
+from casatasks import impv
 from scipy.interpolate import griddata
 
 moment_method = {
@@ -229,7 +230,7 @@ def calculate_pvdiagram(imagename, center_coord=None, PA=90., incl=0.0, rrange=(
     # fetch FitsImage class
     image = FitsImage(imagename)
 
-    # construct original axes
+    # construct projected and spectral axes
     image.get_projected_coord(center_coord=center_coord, PA=PA, incl=incl)
     image.get_spectral_coord()
 
@@ -261,6 +262,12 @@ def calculate_pvdiagram(imagename, center_coord=None, PA=90., incl=0.0, rrange=(
     pvdiagram = np.array([griddata(np.array([y_orig, x_orig]).T, im[im.nonzero()].flatten(), (y_ip, x_ip), method='cubic') for im in data])
 
     return x_ip, velax, pvdiagram
+
+
+# def calculate_pvdiagram_impv(imagename, center_coord=None, PA=90, rrange=(-10.0,10.0), vrange=None):
+
+
+
         
 
 
