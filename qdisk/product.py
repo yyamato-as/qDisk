@@ -9,6 +9,8 @@ moment_method = {
     0: "zeroth",
     1: "first",
     8: "eighth",
+    9: "ninth",
+    "q": "quadratic"
 }
 
 deg_to_arcsec = 3600.
