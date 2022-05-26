@@ -28,6 +28,14 @@ arcsec = np.pi / 180. / 3600. # in rad
 #     import os 
 #     os.system("rm " + os.getcwd() + "/casa-*.log")
 
+### useful functions ###
+
+def is_within(value, range, include_edge=True):
+    if include_edge:
+        return np.logical_and(value >= range[0], value <= range[1])
+    else:
+        return np.logical_and(value > range[0], value < range[1])
+
 ### unit conversion ###
 
 def get_beam_solid_angle(beam):
@@ -294,9 +302,35 @@ def plot_2D_map(
         fig = ax.get_figure()
         fig.colorbar(image, cax=cax, extend=extend, **cbar_kw)
 
-    ax.set_aspect(1./ax.get_data_ratio())
+    # ax.set_aspect(1./ax.get_data_ratio())
 
     return 
+
+def plot_1D_profile(x, y, yerr=None, ax=None, color="black", style="line", label=None):
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    if yerr is None:
+        if style == "line":
+            ax.plot(x, y, color=color, label=label)
+        elif style == "step":
+            ax.plot(x, y, color=color, drawstyle="steps-mid", label=label)
+        elif style == "point":
+            ax.plot(x, y, fmt="o", color=color, label=label)
+    else:
+        if style == "line":
+            ax.plot(x, y, color=color, label=label)
+            ax.fill_between(x, y-yerr, y+yerr, alpha=0.25, edgecolor=None, color=color)
+        elif style == "step":
+            ax.errorbar(x, y, yerr=yerr, drawstyle="steps-mid", color=color)
+        elif style == "point":
+            ax.errorbar(x, y, yerr=yerr, fmt="o", color=color)
+
+    ax.set(xlim=(x.min(), x.max()))
+
+    return fig, ax
+
+
 
 
 #def plot_channel_maps(header, data)

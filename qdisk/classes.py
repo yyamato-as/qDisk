@@ -8,11 +8,12 @@ import matplotlib.pyplot as plt
 
 deg_to_rad = np.pi / 180.0
 deg_to_arcsec = 3600.
+rad_to_arcsec = 180. / np.pi * 3600
 ckms = ac.c.to(u.km/u.s).value
 
 class FitsImage:
 
-    def __init__(self, fitsname, data_squeezed=False, beam_in_arcsec=True):
+    def __init__(self, fitsname):
 
         self.fitsname = fitsname
 
@@ -25,37 +26,38 @@ class FitsImage:
 
         # data
         self.data = fits.getdata(fitsname)
-        if data_squeezed:
-            self.data = np.squeeze(self.data)
-            self.ndim = self.data.ndim
 
         # get axes data
-        self.get_axes()
+        self._get_axes_info()
         
-        # pixel scale
+        # pixel sold angle
         self.Omega_pix = np.abs(self.dx) * np.abs(self.dy)
 
         # beam
-        self.get_beam_info(in_arcsec=beam_in_arcsec)
+        self._get_beam_info()
 
         # frequency
         if "RESTFRQ" in self.header:
             self.restfreq = self.header["RESTFRQ"]
 
-    def get_axes(self):
-        # if self.ndim == 4:
-        #     axes = ["x", "y", "z", "w"] # ra, dec, spectral, stokes
-        if self.ndim == 3:
-            axes = ["x", "y", "z"] # ra, dec, spectral
+    def _get_axes_info(self):
+        ### standard image (2D or 3D) should have two directinal (and one spectral) axes; 
+        ### or, non-standard (e.g., PV diagram) should have one directinal and one spectral axes. 
+        ### This will be dealt with by "CTYPEi" argument in the header
+
+        if self.ndim == 4:
+            axes = ["x", "y", "z", "w"] # ra, dec, spectral, stokes
+        elif self.ndim == 3:
+            axes = ["x", "y", "z"] # ra, dec, spectral; or directinal, spectral, stokes
         elif self.ndim == 2:
-            axes = ["x", "y"] # ra, dec
+            axes = ["x", "y"] # ra, dec; or directinal, spectral
         for i, ax in enumerate(axes):
             setattr(self, "n"+ax, self.header["NAXIS{:d}".format(i+1)]) # header axis numbered from 1
             setattr(self, "d"+ax, self.header["CDELT{:d}".format(i+1)])
             setattr(self, ax+"0", self.header["CRVAL{:d}".format(i+1)])
             setattr(self, "u"+ax, self.header["CUNIT{:d}".format(i+1)])
 
-    def get_beam_info(self, in_arcsec=False):
+    def _get_beam_info(self):
         """Fetch the beam information in header.
 
         Args:
@@ -65,19 +67,17 @@ class FitsImage:
             tuple: beam info in units of arcsec.
         """
         ### assume in deg in header
-        self.bmaj = self.header['BMAJ']
-        self.bmin = self.header['BMIN']
+        self.bmaj = self.header['BMAJ']*deg_to_arcsec
+        self.bmin = self.header['BMIN']*deg_to_arcsec
         self.bpa = self.header['BPA']
         
+        ### beam solid angle
         self.Omega_beam = np.pi / (4 * np.log(2)) * self.bmaj * self.bmin
 
-        if in_arcsec:
-            self.bmaj *= deg_to_arcsec
-            self.bmin *= deg_to_arcsec
-
+        ### tuple of bmaj, bmin, and bpa
         self.beam = (self.bmaj, self.bmin, self.bpa)
 
-        return self.beam # to make accesible from outside
+        # return self.beam # to make accesible from outside
     
     def get_directional_coord(self, center_coord=None, in_arcsec=True):
         """Generate a (RA\cos(Dec), Dec) coordinate (1D each) in arcsec. Assume the unit for coordinates in the header is deg.
@@ -109,6 +109,10 @@ class FitsImage:
             elif isinstance(center_coord, SkyCoord):
                 center_x = center_coord.ra.arcsec 
                 center_y = center_coord.dec.arcsec
+            elif isinstance(center_coord, str):
+                center_coord = SkyCoord(center_coord, frame="icrs")
+                center_x = center_coord.ra.arcsec 
+                center_y = center_coord.dec.arcsec
             offset_x = center_x - x0 # offset along x from phsecenter in arcsec
             offset_y = center_y - y0 # offset along y from phsecenter in arcsec
 
@@ -129,19 +133,9 @@ class FitsImage:
         self.x_proj = (xx * np.sin(PA) + yy * np.cos(PA)) 
         self.y_proj = (- xx * np.cos(PA) + yy * np.sin(PA)) / np.cos(incl) # follow the formulation in Yen et al. 2016
 
-        # if cart_or_pol == 'cart':
-        #     return self.x_proj, self.y_proj
-
         # polar coordinate
         self.r = np.sqrt(self.x_proj**2 + self.y_proj**2) # in arcsec
         self.theta = np.degrees(np.arctan2(self.y_proj, self.x_proj)) # in degree, [-180, 180]
-
-        # if cart_or_pol == 'polar':
-        #     return self.r, self.theta
-        
-        # if cart_or_pol == 'both':
-        #     return (self.x_proj, self.y_proj), (self.r, self.theta)
-
 
     def get_spectral_coord(self):
         if self.ndim < 3:
@@ -150,18 +144,8 @@ class FitsImage:
         # assume in frequency
         self.nu = self.dz * (np.arange(self.nz) - (self.header['CRPIX3'] - 1)) + self.z0
 
-        # if freq_or_vel == 'freq':
-        #     return self.nu
-
         assert self.header['VELREF'] == 257 # in radio convention
         self.v = ckms * (1 - self.nu / self.restfreq)
-
-        # if freq_or_vel == 'vel':
-        #     return self.v
-        
-        # if freq_or_vel == 'both':
-        #     return self.nu, self.v
-
 
     def get_mask(self, center_coord=None, rmin=0.0, rmax=np.inf, thetamin=-180., thetamax=180., PA=90., incl=0.0, vmin=-np.inf, vmax=np.inf):
         # get projected coordinate
@@ -216,10 +200,71 @@ class FitsImage:
         self.get_mask(**mask_kwargs)
 
         # masked data
-        masked_data = self.data * self.mask
+        # masked_data = self.data * self.mask
 
         # calculate rms
-        self.rms = np.nanstd(masked_data[masked_data.nonzero()])
+        self.rms = np.nanstd(self.data[self.mask != 0.0])
+
+
+class PVFitsImage(FitsImage):
+
+    def __init__(self, fitsname):
+        super().__init__(fitsname)
+        self._get_PVaxes_info()
+
+    def _get_PVaxes_info(self):
+        for i in range(self.ndim):
+            if "offset" in self.header["CTYPE{:d}".format(i+1)].lower():
+                # read off position axes info
+                self.np = self.header["NAXIS{:d}".format(i+1)] # number of pixels
+                self.dp = self.header["CDELT{:d}".format(i+1)] # increment
+                self.p0 = self.header["CRVAL{:d}".format(i+1)] # reference value
+                self.rp = self.header["CRPIX{:d}".format(i+1)] # reference pixel
+                self.up = self.header["CUNIT{:d}".format(i+1)] # unit
+
+            if "freq" in self.header["CTYPE{:d}".format(i+1)].lower():
+                # read off velocity axis info in the case header is in frequency
+                self.nv = self.header["NAXIS{:d}".format(i+1)] # number of pixels
+                self.dv = self.header["CDELT{:d}".format(i+1)] * ckms / self.restfreq # increment
+                self.v0 = ckms * (1.0 - self.header["CRVAL{:d}".format(i+1)] / self.restfreq) # reference value
+                self.rv = self.header["CRPIX{:d}".format(i+1)] # reference pixel
+                self.uv = "km/s" # unit
+
+            elif "velocity" in self.header["CTYPE{:d}".format(i+1)].lower():
+                # read off velocityaxis info in the case header is in velocity
+                self.nv = self.header["NAXIS{:d}".format(i+1)] # number of pixels
+                self.dv = self.header["CDELT{:d}".format(i+1)] # increment
+                self.v0 = self.header["CRVAL{:d}".format(i+1)] # reference value
+                self.rv = self.header["CRPIX{:d}".format(i+1)] # reference pixel
+                self.uv = self.header["CUNIT{:d}".format(i+1)] # unit
+
+            else:
+                continue
+
+    def get_coord(self):
+        # fetch all coordinates
+        self.get_position_coord()
+        self.get_velocity_coord()
+
+    def get_position_coord(self):
+        self.p = self.dp * (np.arange(self.np) - (self.rp - 1)) + self.p0
+        # unit conversion
+        if self.up == "deg":
+            self.p *= deg_to_arcsec
+        if self.up == "rad":
+            self.p *= rad_to_arcsec
+
+    def get_velocity_coord(self):
+        self.v = self.dv * (np.arange(self.nv) - (self.rv - 1)) + self.v0
+
+
+
+
+
+
+
+
+        
 
 
 
