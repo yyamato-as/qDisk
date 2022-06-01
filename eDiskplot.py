@@ -12,7 +12,7 @@ import scipy.constants as sc
 ### color pallet
 from matplotlib import colors
 
-freeze = np.loadtxt("./cmap_freeze.txt")
+freeze = np.loadtxt("/home/yamato/Project/qDisk/cmap_freeze.txt")
 freeze /= 255.0
 cpal = colors.ListedColormap(freeze, name="freeze")
 

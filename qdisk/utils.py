@@ -1,5 +1,4 @@
 from astropy.units.quantity import Quantity
-from black import mask_cell
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse, AnchoredSizeBar
 import matplotlib.font_manager as fm
@@ -300,7 +299,8 @@ def plot_2D_map(
         cax = divider.append_axes(position="right", size="5%", axes_class=maxes.Axes, pad=0.1)
         extend = set_colorbar_extend(image, data)
         fig = ax.get_figure()
-        fig.colorbar(image, cax=cax, extend=extend, **cbar_kw)
+        cb = fig.colorbar(image, cax=cax, extend=extend, **cbar_kw)
+        cb.set_label(cbar_kw.get("label"), rotation=270, labelpad=20)
 
     # ax.set_aspect(1./ax.get_data_ratio())
 

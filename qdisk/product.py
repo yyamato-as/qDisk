@@ -172,7 +172,7 @@ def calculate_moment(
 def calculate_radial_profile(imagepath, PA=0., incl=45., center_coord=None, rbins=None, rmin=0.0, rmax=None, wedge_angle=30, mask=None, assume_correlated=False):
 
     print("Loading data...")
-    im = FitsImage(imagepath, bpa_from_west=True)
+    im = FitsImage(imagepath)
     im.get_projected_coord(PA=PA, incl=incl, center_coord=center_coord)
 
     if im.ndim != 2:
@@ -291,18 +291,18 @@ def calculate_pvdiagram(imagename, center_coord=None, PA=90., rrange=(-10.0, 10.
         header["NAXIS2"] = velax.size
         # offset axis
         header["CTYPE1"] = "OFFSET"
-        header["CRPIX1"] = np.ceil(posax.size / 2).astype(float)
+        header["CRPIX1"] = np.ceil(posax.size / 2).astype(np.float32)
         header["CDELT1"] = dx
-        header["CRVAL1"] = posax[int(header["CRPIX1"])-1].astype(float)
+        header["CRVAL1"] = posax[int(header["CRPIX1"])-1].astype(np.float32)
         header["CUNIT1"] = "arcsec"
         # frequency axis
         frqax = image.nu
         if vrange is not None:
             frqax = frqax[v_mask]
         header["CTYPE2"] = "FREQ"
-        header["CRPIX2"] = np.ceil(frqax.size / 2).astype(float)
-        header["CDELT2"] = np.diff(frqax)[0].astype(float)
-        header["CRVAL2"] = frqax[int(header["CRPIX2"])-1].astype(float)
+        header["CRPIX2"] = np.ceil(frqax.size / 2).astype(np.float32)
+        header["CDELT2"] = np.diff(frqax)[0].astype(np.float32)
+        header["CRVAL2"] = frqax[int(header["CRPIX2"])-1].astype(np.float32)
         header["CUNIT2"] = "Hz"
         # remove No. 3 axis
         for key in list(header.keys()):
