@@ -286,7 +286,7 @@ def plot_2D_map(
         plot = getattr(ax, cmap_method)
         image = plot(X, Y, data, rasterized=True, **cmap_kw)
     if contour:
-        ax.contour(X, Y, data, **contour_kw)
+        image = ax.contour(X, Y, data, **contour_kw)
     ax.invert_xaxis()
 
     # add beam and scalebar and title
@@ -307,7 +307,7 @@ def plot_2D_map(
 
     # ax.set_aspect(1./ax.get_data_ratio())
 
-    return 
+    return image
 
 def plot_1D_profile(x, y, yerr=None, ax=None, color="black", style="line", label=None):
     if ax is None:

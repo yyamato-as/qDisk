@@ -23,10 +23,10 @@ def get_imagegrid(npanel, pad=0.0, colorbar=True):
     )
     return fig, imgrid
 
-def left_bottom_ax(imgrid):
-    nrows, ncols = imgrid.get_geometry()
-    i = ncols * (nrows - 1)
-    return imgrid[i]
+# def left_bottom_ax(imgrid):
+#     nrows, ncols = imgrid.get_geometry()
+#     i = ncols * (nrows - 1)
+#     return imgrid[i]
 
 def plot_channel_map(
     fitsname,
@@ -88,7 +88,7 @@ def plot_channel_map(
 
         # plot
         print("Plotting v = {:.2f} km/s...".format(v))
-        plot_2D_map(
+        im = plot_2D_map(
             data=im,
             X=imagecube.x,
             Y=imagecube.y,
@@ -118,13 +118,16 @@ def plot_channel_map(
         ax.xaxis.set_major_locator(ticker.MaxNLocator(5))
         ax.yaxis.set_major_locator(ticker.MaxNLocator(5))
 
+    # colrobar
+    imgrid.cbar_axes[0].colorbar(im)
+
     ### ImageGrid should have param of *ngrids*, but specifying this param cause an error (maybe bug?).
     ### Here is workaround for that, removing axes on which no data are drawn.
     for i in range(i + 1, len(imgrid)):
         imgrid[i].set_axis_off()
 
     # axes label in the bottom left panel
-    left_bottom_ax(imgrid).set(
+    imgrid.axes_llc.set(
         xlabel="$\Delta$R.A. [arcsec]", ylabel="$\Delta$Dec. [arcsec]"
     )
 
