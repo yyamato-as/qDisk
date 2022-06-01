@@ -1,6 +1,5 @@
 import astropy.io.fits as fits
 from astropy.coordinates import SkyCoord
-import casatasks
 import numpy as np
 import astropy.constants as ac
 import astropy.units as u
@@ -193,6 +192,10 @@ class FitsImage:
         fits.writeto(maskname, self.mask.astype(float), self.header, overwrite=overwrite, output_verify="silentfix")
 
         if import_casa:
+            import casatasks
+            from .utils import remove_casalogfile
+            remove_casalogfile()
+            
             casatasks.importfits(fitsimage=maskname, imagename=maskname.replace(".fits", ".image"), overwrite=overwrite)
 
     

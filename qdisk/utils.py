@@ -8,13 +8,11 @@ import numpy as np
 import astropy.units as u
 import astropy.constants as ac
 import pprint
-# import casatasks
+import os
 from astropy.coordinates import SkyCoord
 import astropy.io.fits as fits
 from astropy.wcs import WCS
 # from regions import Regions
-
-nologfile = True
 
 c = ac.c.cgs.value
 k_B = ac.k_B.cgs.value
@@ -28,6 +26,11 @@ arcsec = np.pi / 180. / 3600. # in rad
 #     os.system("rm " + os.getcwd() + "/casa-*.log")
 
 ### useful functions ###
+
+def remove_casalogfile():
+    import casatools
+    lgs = casatools.logsink()
+    os.system("rm "+lgs.logfile())
 
 def is_within(value, range, include_edge=True):
     if include_edge:
@@ -372,6 +375,9 @@ def imfit_wrapper(
     Returns:
         dict: A dictionary contains the fit result, i.e., fitted parameters.
     """
+    
+    import casatasks
+    remove_casalogfile()
 
     print("Start fitting 2D Gaussian to {:s}...".format(imagepath))
     result = casatasks.imfit(imagepath, region=region, model=model, residual=residual, estimates=estimates, rms=rms)

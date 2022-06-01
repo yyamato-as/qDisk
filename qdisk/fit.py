@@ -1,8 +1,12 @@
+from os import remove
 import casatasks
+from .utils import remove_casalogfile
+remove_casalogfile()
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 import numpy as np
 import pprint
+
 
 def imfit_wrapper(
     imagename,
