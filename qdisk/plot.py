@@ -70,6 +70,8 @@ def plot_channel_map(
         data, vmin=sigma_clip * rms if sigma_clip is not None else 0.0
     )
 
+    cmap_kw["norm"] = norm
+
     # iterate over channels to plot
     for i, v in enumerate(velax):
         # define ax
