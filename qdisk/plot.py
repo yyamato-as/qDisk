@@ -1,3 +1,4 @@
+from turtle import color
 from .classes import FitsImage
 from .utils import is_within, plot_2D_map
 import numpy as np
@@ -10,12 +11,15 @@ import matplotlib.patheffects as pe
 def get_figsize(ncols, nrows, max_size=()):
     return (ncols * 3, nrows * 3)
 
-def get_imagegrid(npanel, pad=0.0):
+def get_imagegrid(npanel, pad=0.0, colorbar=True):
     ncols = np.ceil(npanel**0.5).astype(int)
     nrows = np.ceil(npanel / ncols).astype(int)
     fig = plt.figure(figsize=get_figsize(ncols, nrows))
+
+    cbar_mode = "single" if colorbar else None
+
     imgrid = ImageGrid(
-        fig, rect=111, nrows_ncols=(nrows, ncols), share_all=True, axes_pad=pad
+        fig, rect=111, nrows_ncols=(nrows, ncols), share_all=True, axes_pad=pad, cbar_mode=cbar_mode
     )
     return fig, imgrid
 
@@ -34,6 +38,7 @@ def plot_channel_map(
     rms=None,
     noisemask_kw=dict(rmin=10.0, rmax=15.0),
     pad=0.0,
+    colorbar=True,
     cmap_kw=dict(),
 ):
     # load the imagecube
@@ -56,7 +61,7 @@ def plot_channel_map(
     velax = velax[::thin]  # skip each *thin* channel to reduce the number of channels to plot
 
     # setup imagegrid
-    fig, imgrid = get_imagegrid(velax.size, pad=pad)
+    fig, imgrid = get_imagegrid(velax.size, pad=pad, colorbar=colorbar)
 
     # image normalization and clipping
     data = imagecube.data
@@ -70,7 +75,7 @@ def plot_channel_map(
         data, vmin=sigma_clip * rms if sigma_clip is not None else 0.0
     )
 
-    cmap_kw["norm"] = norm
+    cmap_kw["norm"] = cmap_kw.get("norm", norm)
 
     # iterate over channels to plot
     for i, v in enumerate(velax):
