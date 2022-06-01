@@ -331,6 +331,8 @@ def plot_1D_profile(x, y, yerr=None, ax=None, color="black", style="line", label
     return fig, ax
 
 
+def is_within(value, range):
+    return np.logical_and(value >= range[0], value <= range[1])
 
 
 #def plot_channel_maps(header, data)
