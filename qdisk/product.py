@@ -213,7 +213,7 @@ def calculate_radial_profile(imagename, PA=0., incl=45., center_coord=None, rbin
     if save:
         if savefilename is None:
             savefilename = imagename.replace(".fits", "_radialProfileWedge{:d}deg.txt".format(wedge_angle))
-        np.savetxt(savefilename, np.stack([rvals, ravgs, rstds], axis=1), fmt=".8e", header=savefileheader)
+        np.savetxt(savefilename, np.stack([rvals, ravgs, rstds], axis=1), fmt="%.8e", header=savefileheader)
 
     return rvals, ravgs, rstds
 
