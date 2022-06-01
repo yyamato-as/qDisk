@@ -169,10 +169,10 @@ def calculate_moment(
     return maps
 
 
-def calculate_radial_profile(imagepath, PA=0., incl=45., center_coord=None, rbins=None, rmin=0.0, rmax=None, wedge_angle=30, mask=None, assume_correlated=False):
+def calculate_radial_profile(imagename, PA=0., incl=45., center_coord=None, rbins=None, rmin=0.0, rmax=None, wedge_angle=30, mask=None, assume_correlated=False, save=False, savefilename=None, savefileheader=''):
 
     print("Loading data...")
-    im = FitsImage(imagepath)
+    im = FitsImage(imagename)
     im.get_projected_coord(PA=PA, incl=incl, center_coord=center_coord)
 
     if im.ndim != 2:
@@ -209,6 +209,11 @@ def calculate_radial_profile(imagepath, PA=0., incl=45., center_coord=None, rbin
     ravgs = np.array([np.mean(toavg[ridxs == r]) for r in range(1, rbins.size)])
     rstds = np.array([np.std(toavg[ridxs == r]) for r in range(1, rbins.size)])
     rstds /= np.sqrt(nbeams)
+
+    if save:
+        if savefilename is None:
+            savefilename = imagename.replace(".fits", "_radialProfileWedge{:d}deg.txt".format(wedge_angle))
+        np.savetxt(savefilename, np.stack([rvals, ravgs, rstds], axis=1), fmt=".8e", header=savefileheader)
 
     return rvals, ravgs, rstds
 
