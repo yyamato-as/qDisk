@@ -255,7 +255,7 @@ class FitsImage:
 
         if vrange is not None:
             data = data[is_within(self.v, vrange),:,:]
-            v = v[is_within(self.v, vrange),:,:]
+            v = v[is_within(self.v, vrange)]
 
         if sigma_clip is not None:
             data[data < sigma_clip * rms] = np.nan
