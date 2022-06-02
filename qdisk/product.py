@@ -230,7 +230,7 @@ def calculate_averaged_spectra(imagename, save=False, savefilename=None, savefil
     if save:
         if savefilename is None:
             savefilename = imagename.replace(".fits", ".spectrum.txt")
-        np.savetxt(savefilename, np.stack([image.v, avgspec], axis=1), fmt="%.8e", header=savefileheader)
+        np.savetxt(savefilename, np.stack([image.v, avgspec, specstd], axis=1), fmt="%.8e", header=savefileheader)
 
     return image.v, avgspec, specstd
 
