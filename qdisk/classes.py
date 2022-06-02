@@ -4,14 +4,15 @@ import numpy as np
 import astropy.constants as ac
 import astropy.units as u
 import matplotlib.pyplot as plt
+from .utils import is_within
 
 deg_to_rad = np.pi / 180.0
-deg_to_arcsec = 3600.
-rad_to_arcsec = 180. / np.pi * 3600
-ckms = ac.c.to(u.km/u.s).value
+deg_to_arcsec = 3600.0
+rad_to_arcsec = 180.0 / np.pi * 3600
+ckms = ac.c.to(u.km / u.s).value
+
 
 class FitsImage:
-
     def __init__(self, fitsname):
 
         self.fitsname = fitsname
@@ -28,7 +29,7 @@ class FitsImage:
 
         # get axes data
         self._get_axes_info()
-        
+
         # pixel sold angle
         self.Omega_pix = np.abs(self.dx) * np.abs(self.dy)
 
@@ -40,21 +41,23 @@ class FitsImage:
             self.restfreq = self.header["RESTFRQ"]
 
     def _get_axes_info(self):
-        ### standard image (2D or 3D) should have two directinal (and one spectral) axes; 
-        ### or, non-standard (e.g., PV diagram) should have one directinal and one spectral axes. 
+        ### standard image (2D or 3D) should have two directinal (and one spectral) axes;
+        ### or, non-standard (e.g., PV diagram) should have one directinal and one spectral axes.
         ### This will be dealt with by "CTYPEi" argument in the header
 
         if self.ndim == 4:
-            axes = ["x", "y", "z", "w"] # ra, dec, spectral, stokes
+            axes = ["x", "y", "z", "w"]  # ra, dec, spectral, stokes
         elif self.ndim == 3:
-            axes = ["x", "y", "z"] # ra, dec, spectral; or directinal, spectral, stokes
+            axes = ["x", "y", "z"]  # ra, dec, spectral; or directinal, spectral, stokes
         elif self.ndim == 2:
-            axes = ["x", "y"] # ra, dec; or directinal, spectral
+            axes = ["x", "y"]  # ra, dec; or directinal, spectral
         for i, ax in enumerate(axes):
-            setattr(self, "n"+ax, self.header["NAXIS{:d}".format(i+1)]) # header axis numbered from 1
-            setattr(self, "d"+ax, self.header["CDELT{:d}".format(i+1)])
-            setattr(self, ax+"0", self.header["CRVAL{:d}".format(i+1)])
-            setattr(self, "u"+ax, self.header["CUNIT{:d}".format(i+1)])
+            setattr(
+                self, "n" + ax, self.header["NAXIS{:d}".format(i + 1)]
+            )  # header axis numbered from 1
+            setattr(self, "d" + ax, self.header["CDELT{:d}".format(i + 1)])
+            setattr(self, ax + "0", self.header["CRVAL{:d}".format(i + 1)])
+            setattr(self, "u" + ax, self.header["CUNIT{:d}".format(i + 1)])
 
     def _get_beam_info(self):
         """Fetch the beam information in header.
@@ -66,10 +69,10 @@ class FitsImage:
             tuple: beam info in units of arcsec.
         """
         ### assume in deg in header
-        self.bmaj = self.header['BMAJ']*deg_to_arcsec
-        self.bmin = self.header['BMIN']*deg_to_arcsec
-        self.bpa = self.header['BPA']
-        
+        self.bmaj = self.header["BMAJ"] * deg_to_arcsec
+        self.bmin = self.header["BMIN"] * deg_to_arcsec
+        self.bpa = self.header["BPA"]
+
         ### beam solid angle
         self.Omega_beam = np.pi / (4 * np.log(2)) * self.bmaj * self.bmin
 
@@ -77,7 +80,7 @@ class FitsImage:
         self.beam = (self.bmaj, self.bmin, self.bpa)
 
         # return self.beam # to make accesible from outside
-    
+
     def get_directional_coord(self, center_coord=None, in_arcsec=True):
         """Generate a (RA\cos(Dec), Dec) coordinate (1D each) in arcsec. Assume the unit for coordinates in the header is deg.
 
@@ -106,20 +109,19 @@ class FitsImage:
             if isinstance(center_coord, tuple):
                 center_x, center_y = center_coord
             elif isinstance(center_coord, SkyCoord):
-                center_x = center_coord.ra.arcsec 
+                center_x = center_coord.ra.arcsec
                 center_y = center_coord.dec.arcsec
             elif isinstance(center_coord, str):
                 center_coord = SkyCoord(center_coord, frame="icrs")
-                center_x = center_coord.ra.arcsec 
+                center_x = center_coord.ra.arcsec
                 center_y = center_coord.dec.arcsec
-            offset_x = center_x - x0 # offset along x from phsecenter in arcsec
-            offset_y = center_y - y0 # offset along y from phsecenter in arcsec
+            offset_x = center_x - x0  # offset along x from phsecenter in arcsec
+            offset_y = center_y - y0  # offset along y from phsecenter in arcsec
 
-        self.x = dx * (np.arange(self.nx) - (self.header['CRPIX1'] - 1)) - offset_x
-        self.y = dy * (np.arange(self.ny) - (self.header['CRPIX2'] - 1)) - offset_y
+        self.x = dx * (np.arange(self.nx) - (self.header["CRPIX1"] - 1)) - offset_x
+        self.y = dy * (np.arange(self.ny) - (self.header["CRPIX2"] - 1)) - offset_y
 
-    
-    def get_projected_coord(self, PA=90., incl=0., center_coord=None, in_arcsec=True): 
+    def get_projected_coord(self, PA=90.0, incl=0.0, center_coord=None, in_arcsec=True):
         self.get_directional_coord(center_coord=center_coord, in_arcsec=in_arcsec)
 
         # meshgrid to be in 2D
@@ -129,32 +131,51 @@ class FitsImage:
         incl = np.radians(incl)
         PA = np.radians(PA)
 
-        self.x_proj = (xx * np.sin(PA) + yy * np.cos(PA)) 
-        self.y_proj = (- xx * np.cos(PA) + yy * np.sin(PA)) / np.cos(incl) # follow the formulation in Yen et al. 2016
+        self.x_proj = xx * np.sin(PA) + yy * np.cos(PA)
+        self.y_proj = (-xx * np.cos(PA) + yy * np.sin(PA)) / np.cos(
+            incl
+        )  # follow the formulation in Yen et al. 2016
 
         # polar coordinate
-        self.r = np.sqrt(self.x_proj**2 + self.y_proj**2) # in arcsec
-        self.theta = np.degrees(np.arctan2(self.y_proj, self.x_proj)) # in degree, [-180, 180]
+        self.r = np.sqrt(self.x_proj**2 + self.y_proj**2)  # in arcsec
+        self.theta = np.degrees(
+            np.arctan2(self.y_proj, self.x_proj)
+        )  # in degree, [-180, 180]
 
     def get_spectral_coord(self):
         if self.ndim < 3:
             raise KeyError("Spectral axis not found.")
-        
-        # assume in frequency
-        self.nu = self.dz * (np.arange(self.nz) - (self.header['CRPIX3'] - 1)) + self.z0
 
-        assert self.header['VELREF'] == 257 # in radio convention
+        # assume in frequency
+        self.nu = self.dz * (np.arange(self.nz) - (self.header["CRPIX3"] - 1)) + self.z0
+
+        assert self.header["VELREF"] == 257  # in radio convention
         self.v = ckms * (1 - self.nu / self.restfreq)
 
-    def get_mask(self, center_coord=None, rmin=0.0, rmax=np.inf, thetamin=-180., thetamax=180., PA=90., incl=0.0, vmin=-np.inf, vmax=np.inf):
+    def get_mask(
+        self,
+        center_coord=None,
+        rmin=0.0,
+        rmax=np.inf,
+        thetamin=-180.0,
+        thetamax=180.0,
+        PA=90.0,
+        incl=0.0,
+        vmin=-np.inf,
+        vmax=np.inf,
+    ):
         # get projected coordinate
-        self.get_projected_coord(center_coord=center_coord, in_arcsec=True, PA=PA, incl=incl)
+        self.get_projected_coord(
+            center_coord=center_coord, in_arcsec=True, PA=PA, incl=incl
+        )
 
         # radial mask
         r_mask = np.where(((self.r >= rmin) & (self.r <= rmax)), 1.0, 0.0)
 
         # azimuthal mask
-        theta_mask = np.where(((self.theta >= thetamin) & (self.theta <= thetamax)), 1.0, 0.0)
+        theta_mask = np.where(
+            ((self.theta >= thetamin) & (self.theta <= thetamax)), 1.0, 0.0
+        )
 
         # channel mask
         if self.ndim > 2:
@@ -165,7 +186,7 @@ class FitsImage:
             # calculate velocity axis
             self.get_spectral_coord()
             channel_mask = np.where(((self.v >= vmin) & (self.v <= vmax)), 1.0, 0.0)
-            channel_mask = np.expand_dims(channel_mask, axis=(1,2))
+            channel_mask = np.expand_dims(channel_mask, axis=(1, 2))
 
         # combine
         self.mask = np.logical_and(r_mask, theta_mask)
@@ -173,9 +194,8 @@ class FitsImage:
         if self.ndim > 2:
             self.mask = np.logical_and(self.mask, channel_mask)
 
-
     def save_mask(self, maskname=None, overwrite=True, import_casa=False):
-        if self.ndim > self.mask.ndim: # data dimension is 3D, whereas mask is 2D
+        if self.ndim > self.mask.ndim:  # data dimension is 3D, whereas mask is 2D
             self.mask = np.expand_dims(self.mask, axis=0)
 
         # a few tweaks in the header
@@ -189,57 +209,97 @@ class FitsImage:
         # save as a FITS
         if maskname is None:
             maskname = self.fitsname.replace(".fits", ".mask.fits")
-        fits.writeto(maskname, self.mask.astype(float), self.header, overwrite=overwrite, output_verify="silentfix")
+        fits.writeto(
+            maskname,
+            self.mask.astype(float),
+            self.header,
+            overwrite=overwrite,
+            output_verify="silentfix",
+        )
 
         if import_casa:
             import casatasks
             from .utils import remove_casalogfile
+
             remove_casalogfile()
-            
-            casatasks.importfits(fitsimage=maskname, imagename=maskname.replace(".fits", ".image"), overwrite=overwrite)
+
+            casatasks.importfits(
+                fitsimage=maskname,
+                imagename=maskname.replace(".fits", ".image"),
+                overwrite=overwrite,
+            )
+
+    def estimate_rms(self, edgenchan=None, **mask_kwargs):
+
+        if edgenchan is not None:
+            self.rms = np.nanstd([self.data[:edgenchan], self.data[-edgenchan:]])
+
+        else:
+            self.get_mask(**mask_kwargs)
+            self.rms = np.nanstd(self.data[self.mask != 0.0])
 
     
-    def estimate_rms(self, **mask_kwargs):
-        self.get_mask(**mask_kwargs)
+    def spectrally_collapse(self, vrange=None, sigma_clip=None, rms=None, noiseedgenchan=3, mode="average"):
 
-        # masked data
-        # masked_data = self.data * self.mask
+        if self.ndim < 3:
+            raise ValueError("The image is not 3D. Spectral collapse is not avilable.")
 
-        # calculate rms
-        self.rms = np.nanstd(self.data[self.mask != 0.0])
+        if rms is None:
+            self.estimate_rms(edgenchan=noiseedgenchan)
+            rms = self.rms
+        
+        data = self.data
+
+        if vrange is not None:
+            self.get_spectral_coord()
+            data = data[is_within(self.v, vrange),:,:]
+
+        if sigma_clip is not None:
+            data[data < sigma_clip * rms] = np.nan
+
+        # collapse
+        if "ave" in mode:
+            self.collapsed = np.average(data, axis=0)
+        elif "s" in mode:
+            self.collapsed = np.sum(data, axis=0)
+
+
 
 
 class PVFitsImage(FitsImage):
-
     def __init__(self, fitsname):
         super().__init__(fitsname)
         self._get_PVaxes_info()
 
     def _get_PVaxes_info(self):
         for i in range(self.ndim):
-            if "offset" in self.header["CTYPE{:d}".format(i+1)].lower():
+            if "offset" in self.header["CTYPE{:d}".format(i + 1)].lower():
                 # read off position axes info
-                self.np = self.header["NAXIS{:d}".format(i+1)] # number of pixels
-                self.dp = self.header["CDELT{:d}".format(i+1)] # increment
-                self.p0 = self.header["CRVAL{:d}".format(i+1)] # reference value
-                self.rp = self.header["CRPIX{:d}".format(i+1)] # reference pixel
-                self.up = self.header["CUNIT{:d}".format(i+1)] # unit
+                self.np = self.header["NAXIS{:d}".format(i + 1)]  # number of pixels
+                self.dp = self.header["CDELT{:d}".format(i + 1)]  # increment
+                self.p0 = self.header["CRVAL{:d}".format(i + 1)]  # reference value
+                self.rp = self.header["CRPIX{:d}".format(i + 1)]  # reference pixel
+                self.up = self.header["CUNIT{:d}".format(i + 1)]  # unit
 
-            if "freq" in self.header["CTYPE{:d}".format(i+1)].lower():
+            if "freq" in self.header["CTYPE{:d}".format(i + 1)].lower():
                 # read off velocity axis info in the case header is in frequency
-                self.nv = self.header["NAXIS{:d}".format(i+1)] # number of pixels
-                self.dv = self.header["CDELT{:d}".format(i+1)] * ckms / self.restfreq # increment
-                self.v0 = ckms * (1.0 - self.header["CRVAL{:d}".format(i+1)] / self.restfreq) # reference value
-                self.rv = self.header["CRPIX{:d}".format(i+1)] # reference pixel
-                self.uv = "km/s" # unit
+                self.nv = self.header["NAXIS{:d}".format(i + 1)]  # number of pixels
+                self.dv = (
+                    self.header["CDELT{:d}".format(i + 1)] * ckms / self.restfreq
+                )  # increment
+                self.v0 = ckms * (
+                    1.0 - self.header["CRVAL{:d}".format(i + 1)] / self.restfreq
+                )  # reference value
+                self.rv = self.header["CRPIX{:d}".format(i + 1)]  # reference pixel
+                self.uv = "km/s"  # unit
 
-            elif "velocity" in self.header["CTYPE{:d}".format(i+1)].lower():
+            elif "velocity" in self.header["CTYPE{:d}".format(i + 1)].lower():
                 # read off velocityaxis info in the case header is in velocity
-                self.nv = self.header["NAXIS{:d}".format(i+1)] # number of pixels
-                self.dv = self.header["CDELT{:d}".format(i+1)] # increment
-                self.v0 = self.header["CRVAL{:d}".format(i+1)] # reference value
-                self.rv = self.header["CRPIX{:d}".format(i+1)] # reference pixel
-                self.uv = self.header["CUNIT{:d}".format(i+1)] # unit
+                self.nv = self.header["NAXIS{:d}".format(i + 1)]  # number of pixels
+                self.dv = self.header["CDELT{:d}".format(i + 1)]  # increment
+                self.v0 = self.header["CRVAL{:d}".format(i + 1)]  # reference value
+                self.rv = self.header["CRPIX{:d}".format(i + 1)]  # reference pixel
+                self.uv = self.header["CUNIT{:d}".format(i + 1)]  # unit
 
             else:
                 continue
@@ -259,26 +319,3 @@ class PVFitsImage(FitsImage):
 
     def get_velocity_coord(self):
         self.v = self.dv * (np.arange(self.nv) - (self.rv - 1)) + self.v0
-
-
-
-
-
-
-
-
-        
-
-
-
-
-
-
-
-
-
-        
-        
-
-
-        
