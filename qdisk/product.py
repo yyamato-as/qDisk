@@ -218,7 +218,7 @@ def calculate_radial_profile(imagename, PA=0., incl=45., center_coord=None, rbin
     return rvals, ravgs, rstds
 
 
-def calculate_averaged_spectra(imagename, **mask_kwargs):
+def calculate_averaged_spectra(imagename, save=False, savefilename=None, savefileheader='', **mask_kwargs):
 
     image = FitsImage(imagename)
     image.get_spectral_coord()
@@ -226,6 +226,11 @@ def calculate_averaged_spectra(imagename, **mask_kwargs):
 
     avgspec = np.array([np.nanmean(image[mask]) for image, mask in zip(image.data, image.mask)])
 
+    if save:
+        if savefilename is None:
+            savefilename = imagename.replace(".fits", ".spectrum.txt")
+        np.savetxt(savefilename, np.stack([image.v, avgspec], axis=1), fmt="%.8e", header=savefileheader)
+        
     return image.v, avgspec
 
 
