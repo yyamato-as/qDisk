@@ -250,18 +250,25 @@ class FitsImage:
         
         data = self.data
 
+        self.get_spectral_coord()
+        v = self.v
+
         if vrange is not None:
-            self.get_spectral_coord()
             data = data[is_within(self.v, vrange),:,:]
+            v = v[is_within(self.v, vrange),:,:]
 
         if sigma_clip is not None:
             data[data < sigma_clip * rms] = np.nan
 
         # collapse
         if "ave" in mode:
-            self.collapsed = np.average(data, axis=0)
+            self.collapsed = np.nanaverage(data, axis=0)
         elif "s" in mode:
-            self.collapsed = np.sum(data, axis=0)
+            self.collapsed = np.nansum(data, axis=0)
+        elif ("mom0" in mode) or ("integ" in mode):
+            dchan = np.diff(v).mean()
+            data[np.isnan(data)] = 0.0
+            self.collapsed = np.trapz(data, dx=dchan, axis=0)
 
 
 
