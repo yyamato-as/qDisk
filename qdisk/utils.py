@@ -271,6 +271,8 @@ def plot_2D_map(
     title=None,
     beam=None,
     scale=None,
+    xlim=None,
+    ylim=None,
     cmap_kw={},
     contour_kw={},
     cbar_kw={},
@@ -280,6 +282,13 @@ def plot_2D_map(
     
     if ax is None:
         fig, ax = plt.subplots()
+
+    if ylim is not None:
+        data = data[is_within(Y, ylim), :]
+
+    if xlim is not None:
+        data = data[:, is_within(X, xlim)]
+    
 
     # colormap
     if cmap:
