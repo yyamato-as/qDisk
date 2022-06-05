@@ -285,9 +285,11 @@ def plot_2D_map(
 
     if ylim is not None:
         data = data[is_within(Y, ylim), :]
+        Y = Y[is_within(Y, ylim)]
 
     if xlim is not None:
         data = data[:, is_within(X, xlim)]
+        X = X[is_within(X, xlim)]
     
 
     # colormap
