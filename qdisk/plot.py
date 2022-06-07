@@ -1,6 +1,6 @@
 from turtle import color
 from .classes import FitsImage
-from .utils import is_within, plot_2D_map
+from .utils import is_within, plot_2D_map, add_beam
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
@@ -40,6 +40,7 @@ def plot_channel_map(
     pad=0.0,
     colorbar=True,
     cmap_kw=dict(),
+    beam_kw=dict(),
 ):
     # load the imagecube
     print("Loading data...")
@@ -130,5 +131,8 @@ def plot_channel_map(
     imgrid.axes_llc.set(
         xlabel="$\Delta$R.A. [arcsec]", ylabel="$\Delta$Dec. [arcsec]"
     )
+
+    # add beam
+    add_beam(ax=imgrid.axes_llc, beam=imagecube.beam, **beam_kw)
 
     return fig

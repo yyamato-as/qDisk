@@ -8,7 +8,7 @@ from .utils import is_within
 
 deg_to_rad = np.pi / 180.0
 deg_to_arcsec = 3600.0
-rad_to_arcsec = 180.0 / np.pi * 3600
+rad_to_arcsec = 180.0 / np.pi * 3600.0
 ckms = ac.c.to(u.km / u.s).value
 
 
