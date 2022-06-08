@@ -73,7 +73,7 @@ def imfit_wrapper(
         )
         frame = result["results"]["component{:d}".format(i)]["shape"]["direction"]["refer"].lower()
         c = SkyCoord(ra=ra, dec=dec, frame=frame)
-        r["peak"] = c.ra.hms.to_string(u.hour) + " " + c.dec.dms.to_string(u.degree, alwayssign=True)
+        r["peak"] = c.ra.to_string(u.hour) + " " + c.dec.to_string(u.degree, alwayssign=True)
 
         # size
         maj = result["results"]["component{:d}".format(i)]["shape"]["majoraxis"]["value"] * u.Unit(
