@@ -120,7 +120,7 @@ def imfit_wrapper(
         ax = axes[0]
         obsimage = FitsImage(imagename)
         obsimage.get_directional_coord()
-        plot_2D_map(obsimage.data, ax=ax, X=obsimage.x, Y=obsimage.y, contour=False, colorbar=False, beam=obsimage.beam, title="Data", **plot_kw)
+        plot_2D_map(obsimage.data, ax=ax, X=obsimage.x, Y=obsimage.y, contour=False, beam=obsimage.beam, title="Data", **plot_kw)
         ax.set(xlabel="$\Delta$R.A. [arcsec]", ylabel="$\Delta$Dec. [arcsec]", aspect=1./ax.get_data_ratio())
 
         # region
@@ -131,7 +131,7 @@ def imfit_wrapper(
         ax = axes[1]
         modelimage = CasaImage(model)
         modelimage.get_directional_coord()
-        plot_2D_map(modelimage.data, ax=ax, X=modelimage.x, Y=modelimage.y, contour=False, colorbar=False, beam=obsimage.beam, title="Model", **plot_kw)
+        plot_2D_map(modelimage.data, ax=ax, X=modelimage.x, Y=modelimage.y, contour=False, beam=obsimage.beam, title="Model", **plot_kw)
         ax.set(aspect=1./ax.get_data_ratio())
 
         # # region
