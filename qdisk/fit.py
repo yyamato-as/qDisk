@@ -1,11 +1,14 @@
 from os import remove
 import casatasks
-from .utils import remove_casalogfile
+from .utils import remove_casalogfile, plot_2D_map
 remove_casalogfile()
 from astropy.coordinates import SkyCoord
+from astropy.wcs import WCS
+from .classes import FitsImage, CasaImage
 import astropy.units as u
 import numpy as np
 import pprint
+import matplotlib.pyplot as plt
 
 
 def imfit_wrapper(
@@ -18,6 +21,8 @@ def imfit_wrapper(
     rms=-1,
     comp_name_list=None,
     print_result=True,
+    plot_result=True,
+    plot_kw=dict(),
 ):
     """A wrapper for CASA imfit task to fit one or more Gaussian component(s) to an image.
 
@@ -43,9 +48,9 @@ def imfit_wrapper(
     print("Done!")
 
     if not result["converged"]:
-        print("Fit not converged. Try again with different parameters.")
+        print("Fit not converged!. Try again with different parameters.")
     else:
-        print("Fit converged!")
+        print("Fit converged.")
 
     if comp_name_list is None:
         comp_name_list = ["component{:d}".format(i) for i in range(result["deconvolved"]["nelements"])]
@@ -86,7 +91,7 @@ def imfit_wrapper(
         r["size"]["pa"] = pa
 
         # calculate inclination
-        incl = np.rad2deg(np.arccos(min / maj)).value % 360
+        incl = np.rad2deg(np.arccos(min / maj)).value % 90
         r["inclination"] = incl * u.deg
 
         # flux
@@ -108,61 +113,46 @@ def imfit_wrapper(
     if print_result:
         pprint.pprint(output_result)
 
-    # if plot:
-    #     fig = plt.figure(figsize=(12, 4))
+    if plot_result:
+        fig, axes = plt.subplots(1, 3, sharex=True, sharey=True, figsize=(9,3))
 
-    #     # data
-    #     header = fits.getheader(imagepath)
-    #     data = fits.getdata(imagepath)
-    #     beam = (header['BMAJ']/np.abs(header['CDELT1']), header['BMIN']/np.abs(header['CDELT2']), header['BPA'] + 90)
-    #     ax = fig.add_subplot(131, projection=WCS(header))
-    #     plot_2D_map(data[plot_region_slices], ax=ax, contour=False, beam=beam, title="Data", **plot_kw)
+        # data
+        ax = axes[0]
+        obsimage = FitsImage(imagename)
+        obsimage.get_directional_coord()
+        plot_2D_map(obsimage.data, ax=ax, X=obsimage.x, Y=obsimage.y, contour=False, colorbar=False, beam=obsimage.beam, title="Data", **plot_kw)
+        ax.set(xlabel="$\Delta$R.A. [arcsec]", ylabel="$\Delta$Dec. [arcsec]")
 
-    #     # region
-    #     fit_region = Regions.parse(region + ' coord=' + header['RADESYS'].lower(), format='crtf')[0]
-    #     fit_region.to_pixel(WCS(header)).plot(ax=ax, facecolor="none", edgecolor="white", linestyle="dashed")
+        # region
+        # fit_region = Regions.parse(region + ' coord=' + header['RADESYS'].lower(), format='crtf')[0]
+        # fit_region.to_pixel(WCS(header)).plot(ax=ax, facecolor="none", edgecolor="white", linestyle="dashed")
 
-    #     # model
-    #     # export to FITS and read it
-    #     modfits = model + ".fits"
-    #     casatasks.exportfits(model, fitsimage=modfits, overwrite=True, dropdeg=True)
-    #     header = fits.getheader(modfits)
-    #     data = fits.getdata(modfits)
+        # model
+        ax = axes[1]
+        modelimage = CasaImage(model)
+        modelimage.get_directional_coord()
+        plot_2D_map(modelimage.data, ax=ax, X=modelimage.x, Y=modelimage.y, contour=False, colorbar=False, beam=obsimage.beam, title="Data", **plot_kw)
 
-    #     # plot
-    #     ax = fig.add_subplot(132, projection=WCS(header))
-    #     plot_2D_map(data[plot_region_slices], ax=ax, contour=False, title="Model", **plot_kw)
+        # # region
+        # fit_region = Regions.parse(region + ' coord=' + header['RADESYS'].lower(), format='crtf')[0]
+        # fit_region.to_pixel(WCS(header)).plot(ax=ax, facecolor="none", edgecolor="white", linestyle="dashed")
+        # # visual clarity
+        # ax.tick_params(axis="x", labelbottom=False)  # remove ticklabels for visual clarity
+        # ax.tick_params(axis="y", labelleft=False)
 
-    #     # region
-    #     fit_region = Regions.parse(region + ' coord=' + header['RADESYS'].lower(), format='crtf')[0]
-    #     fit_region.to_pixel(WCS(header)).plot(ax=ax, facecolor="none", edgecolor="white", linestyle="dashed")
-    #     # visual clarity
-    #     ax.tick_params(axis="x", labelbottom=False)  # remove ticklabels for visual clarity
-    #     ax.tick_params(axis="y", labelleft=False)
+        # residual
+        ax = axes[2]
+        residualimage = CasaImage(residual)
+        residualimage.get_directional_coord()
+        plot_kw.update({
+            "cmap": "RdBu_r",
+            "vmin": -3 * rms,
+            "vmax": 3 * rms,
+        } )
+        plot_2D_map(residualimage.data, ax=ax, X=residualimage.x, Y=residualimage.y, contour=False, beam=obsimage.beam, title="Data", **plot_kw)
 
-    #     # residual
-    #     # export to FITS and read it
-    #     resfits = residual + ".fits"
-    #     casatasks.exportfits(residual, fitsimage=resfits, overwrite=True, dropdeg=True)
-    #     header = fits.getheader(resfits)
-    #     data = fits.getdata(resfits)
+        # plot
 
-    #     # plot
-    #     ax = fig.add_subplot(133, projection=WCS(header))
-    #     plot_kw["imshow_kw"] = {
-    #         "cmap": "RdBu_r",
-    #         "vmin": -3 * rms,
-    #         "vmax": 3 * rms,
-    #     }  # change to diverging cmap and rms limited color range
-    #     plot_2D_map(data[plot_region_slices], ax=ax, contour=False, title="Residual", **plot_kw)
+        # plt.subplots_adjust(wspace=0.4)
 
-    #     # region
-    #     fit_region = Regions.parse(region + ' coord=' + header['RADESYS'].lower(), format='crtf')[0]
-    #     fit_region.to_pixel(WCS(header)).plot(ax=ax, facecolor="none", edgecolor="black", linestyle="dashed")
-    #     # visual clarity
-    #     ax.tick_params(axis="x", labelbottom=False)  # remove ticklabels for visual clarity
-    #     ax.tick_params(axis="y", labelleft=False)
-
-    #     plt.subplots_adjust(wspace=0.4)
-
-    return output_result
+    return output_result, fig
