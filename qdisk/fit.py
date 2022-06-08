@@ -144,11 +144,11 @@ def imfit_wrapper(
         ax = axes[2]
         residualimage = CasaImage(residual)
         residualimage.get_directional_coord()
-        plot_kw.update({
+        plot_kw.update(dict(cmap_kw={
             "cmap": "RdBu_r",
             "vmin": -3 * rms,
             "vmax": 3 * rms,
-        } )
+        }))
         plot_2D_map(residualimage.data, ax=ax, X=residualimage.x, Y=residualimage.y, contour=False, beam=obsimage.beam, title="Data", **plot_kw)
 
         # plot
