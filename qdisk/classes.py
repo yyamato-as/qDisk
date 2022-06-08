@@ -33,7 +33,7 @@ class CasaImage:
 
         # data
         ia.fromimage(infile=imagename)
-        self.data = ia.torecord()["imagearray"]
+        self.data = ia.torecord()["imagearray"].T
         # if data_squeezed:
         #     self.data = np.squeeze(self.data)
         #     self.ndim = self.data.ndim

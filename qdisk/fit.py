@@ -121,7 +121,7 @@ def imfit_wrapper(
         obsimage = FitsImage(imagename)
         obsimage.get_directional_coord()
         plot_2D_map(obsimage.data, ax=ax, X=obsimage.x, Y=obsimage.y, contour=False, colorbar=False, beam=obsimage.beam, title="Data", **plot_kw)
-        ax.set(xlabel="$\Delta$R.A. [arcsec]", ylabel="$\Delta$Dec. [arcsec]")
+        ax.set(xlabel="$\Delta$R.A. [arcsec]", ylabel="$\Delta$Dec. [arcsec]", aspect=1./ax.get_data_ratio())
 
         # region
         # fit_region = Regions.parse(region + ' coord=' + header['RADESYS'].lower(), format='crtf')[0]
@@ -131,7 +131,8 @@ def imfit_wrapper(
         ax = axes[1]
         modelimage = CasaImage(model)
         modelimage.get_directional_coord()
-        plot_2D_map(modelimage.data, ax=ax, X=modelimage.x, Y=modelimage.y, contour=False, colorbar=False, beam=obsimage.beam, title="Data", **plot_kw)
+        plot_2D_map(modelimage.data, ax=ax, X=modelimage.x, Y=modelimage.y, contour=False, colorbar=False, beam=obsimage.beam, title="Model", **plot_kw)
+        ax.set(aspect=1./ax.get_data_ratio())
 
         # # region
         # fit_region = Regions.parse(region + ' coord=' + header['RADESYS'].lower(), format='crtf')[0]
@@ -149,8 +150,8 @@ def imfit_wrapper(
             "vmin": -3 * rms,
             "vmax": 3 * rms,
         }))
-        plot_2D_map(residualimage.data, ax=ax, X=residualimage.x, Y=residualimage.y, contour=False, beam=obsimage.beam, title="Data", **plot_kw)
-
+        plot_2D_map(residualimage.data, ax=ax, X=residualimage.x, Y=residualimage.y, contour=False, beam=obsimage.beam, title="Residual", **plot_kw)
+        ax.set(aspect=1./ax.get_data_ratio())
         # plot
 
         # plt.subplots_adjust(wspace=0.4)
