@@ -385,6 +385,10 @@ class FitsImage:
         assert self.header["VELREF"] == 257  # in radio convention
         self.v = ckms * (1 - self.nu / self.restfreq)
 
+    def get_threshold_mask(self, threshold=3):
+        self.SNR = self.data / self.rms 
+        self.threshold_mask = self.SNR >= threshold
+
     def get_mask(
         self,
         center_coord=None,
