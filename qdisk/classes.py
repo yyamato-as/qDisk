@@ -385,6 +385,54 @@ class FitsImage:
         assert self.header["VELREF"] == 257  # in radio convention
         self.v = ckms * (1 - self.nu / self.restfreq)
 
+    
+    def cutout(self, xlim=None, ylim=None, vlim=None):
+        if xlim is not None:
+            self.data = self.data[..., is_within(self.x, xlim)]
+            try:
+                self.x_proj = self.x_proj[:, is_within(self.x, xlim)]
+                self.y_proj = self.y_proj[:, is_within(self.x, xlim)]
+                self.r = self.r[:, is_within(self.x, xlim)]
+                self.theta = self.theta[:, is_within(self.x, xlim)]
+            except AttributeError:
+                pass
+            self.x = self.x[is_within(self.x, xlim)]
+
+        if ylim is not None:
+            self.data = self.data[..., is_within(self.y, ylim), :]
+            try:
+                self.x_proj = self.x_proj[is_within(self.y, ylim), :]
+                self.y_proj = self.y_proj[is_within(self.y, ylim), :]
+                self.r = self.r[is_within(self.y, ylim), :]
+                self.theta = self.theta[is_within(self.y, ylim), :]
+            except AttributeError:
+                pass
+            self.y = self.y[is_within(self.y, ylim)]
+
+        if vlim is not None:
+            self.data = self.data[is_within(self.v, vlim)]
+            self.nu = self.nu[is_within(self.v, vlim)]
+            self.v = self.v[is_within(self.v, vlim)]
+        
+    def downsample(self, N):
+        # adopted from eddy code by rich teague
+        N = int(np.ceil(self.bmaj / self.dpix)) if N == 'beam' else N
+        N0x, N0y = int(N / 2), int(N / 2)
+        if N > 1:
+            self.x = self.x[N0x::N]
+            self.y = self.y[N0y::N]
+            self.data = self.data[N0y::N, N0x::N]
+            try:
+                self.x_proj = self.x_proj[N0y::N, N0x::N]
+                self.y_proj = self.y_proj[N0y::N, N0x::N]
+                self.r = self.r[N0y::N, N0x::N]
+                self.theta = self.theta[N0y::N, N0x::N]
+                # self.mask = self.mask[N0y::N, N0x::N]
+            except AttributeError:
+                pass
+            # self.error = self.error[N0y::N, N0x::N]
+            # self.mask = self.mask[N0y::N, N0x::N]
+
     def get_threshold_mask(self, threshold=3):
         self.SNR = self.data / self.rms 
         self.threshold_mask = self.SNR >= threshold
