@@ -421,7 +421,7 @@ class FitsImage:
         if N > 1:
             self.x = self.x[N0x::N]
             self.y = self.y[N0y::N]
-            self.data = self.data[N0y::N, N0x::N]
+            self.data = self.data[..., N0y::N, N0x::N]
             try:
                 self.x_proj = self.x_proj[N0y::N, N0x::N]
                 self.y_proj = self.y_proj[N0y::N, N0x::N]
