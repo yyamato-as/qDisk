@@ -416,7 +416,7 @@ class FitsImage:
         
     def downsample(self, N):
         # adopted from eddy code by rich teague
-        N = int(np.ceil(self.bmaj / self.dpix)) if N == 'beam' else N
+        N = int(np.ceil(self.bmaj / self.dx)) if N == 'beam' else N
         N0x, N0y = int(N / 2), int(N / 2)
         if N > 1:
             self.x = self.x[N0x::N]
