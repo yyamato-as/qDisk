@@ -286,7 +286,7 @@ class FitsImage:
         x = self._get_axis(n=1)
         y = self._get_axis(n=2)
         if relative:
-            x -= self.header["cvral1"]
+            x -= self.header["crval1"]
             y -= self.header["crval2"]
         x *= deg_to_arcsec
         y *= deg_to_arcsec
@@ -320,7 +320,10 @@ class FitsImage:
         try:
             return self.header["restfreq"]
         except KeyError:
-            return None
+            try:
+                return self.header["restfrq"]
+            except KeyError:
+                return None
 
     def _get_FITS_properties(self, rel_dir_ax=True):
 
@@ -379,7 +382,7 @@ class FitsImage:
 
     def downsample_cube(self, N):
         # adopted from eddy code by rich teague
-        N = int(np.ceil(self.bmaj / (abs(self.dx)*deg_to_arcsec))) if N == 'beam' else N
+        N = int(np.ceil(self.bmaj / abs(self.dpix))) if N == 'beam' else N
         if N > 1:
             self.x = self.x[::N]
             self.y = self.y[::N]
@@ -392,6 +395,12 @@ class FitsImage:
 
         self.rel_dir_ax = rel_dir_ax
         self._get_FITS_properties(rel_dir_ax=rel_dir_ax)
+
+    def get_disk_coord(self, x0=0.0, y0=0.0, PA=0.0, incl=0.0, frame="polar"):
+        if frame == "polar":
+            return self._get_polar_disk_coord(x0=x0, y0=y0, PA=PA, incl=incl)
+        if frame == "cartesian":
+            return self._get_cart_disk_coord(x0=x0, y0=y0, PA=PA, incl=incl)
 
     def _get_cart_sky_coord(self, x0, y0):
         return np.meshgrid(self.x - x0, self.y - y0)
@@ -454,9 +463,9 @@ class FitsImage:
     def restfreq(self):
         return self.nu0
 
-    @property
-    def nu0(self):
-        return self.nu0
+    # @property
+    # def nu0(self):
+    #     return self.nu0
 
     @property
     def nxpix(self):
@@ -465,6 +474,10 @@ class FitsImage:
     @property
     def nypix(self):
         return self.y.size
+
+    @property
+    def dpix(self):
+        return np.diff(self.x).mean()
 
     # def get_directional_coord(self, center_coord=None, in_arcsec=True):
     #     """Generate a (RA\cos(Dec), Dec) coordinate (1D each) in arcsec. Assume the unit for coordinates in the header is deg.
