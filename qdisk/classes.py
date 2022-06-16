@@ -701,7 +701,7 @@ class FitsImage:
         data = self.data
 
         # self.get_spectral_coord()
-        # v = self.v
+        v = self.v
 
         if vrange is not None:
             data = data[is_within(self.v, vrange),:,:]
