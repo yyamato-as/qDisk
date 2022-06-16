@@ -348,8 +348,8 @@ class FitsImage:
     def shift_phasecenter_toward(self, coord):
         c = SkyCoord(coord, frame="icrs")
         if self.rel_dir_ax:
-            dx = c.ra.arcsec - self.header["crval1"]
-            dy = c.dec.arcsec - self.header["crval2"]
+            dx = c.ra.arcsec - self.header["crval1"] * deg_to_arcsec
+            dy = c.dec.arcsec - self.header["crval2"] * deg_to_arcsec
         else:
             x0, y0 = self.get_phasecenter_coord()
             dx = c.ra.arcsec - x0
@@ -615,7 +615,7 @@ class FitsImage:
         vmax=np.inf,
     ):
         # get projected coordinate
-        self.get_projected_coord(
+        self.get_disk_coord(
             center_coord=center_coord, in_arcsec=True, PA=PA, incl=incl
         )
 
@@ -700,8 +700,8 @@ class FitsImage:
         
         data = self.data
 
-        self.get_spectral_coord()
-        v = self.v
+        # self.get_spectral_coord()
+        # v = self.v
 
         if vrange is not None:
             data = data[is_within(self.v, vrange),:,:]
