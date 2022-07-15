@@ -3,7 +3,6 @@ import casatasks
 from .utils import remove_casalogfile, plot_2D_map
 remove_casalogfile()
 from astropy.coordinates import SkyCoord
-from astropy.wcs import WCS
 from .classes import FitsImage, CasaImage
 import astropy.units as u
 import numpy as np

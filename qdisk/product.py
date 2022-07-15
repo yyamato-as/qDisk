@@ -169,11 +169,12 @@ def calculate_moment(
     return maps
 
 
-def calculate_radial_profile(imagename, PA=0., incl=45., center_coord=None, rbins=None, rmin=0.0, rmax=None, wedge_angle=30, mask=None, assume_correlated=False, save=False, savefilename=None, savefileheader=''):
+def calculate_radial_profile(imagename, xlim=None, ylim=None, PA=0., incl=45., center_coord=None, rbins=None, rmin=0.0, rmax=None, wedge_angle=30, mask=None, assume_correlated=False, save=False, savefilename=None, savefileheader=''):
 
     print("Loading data...")
-    im = FitsImage(imagename)
-    im.get_projected_coord(PA=PA, incl=incl, center_coord=center_coord)
+    im = FitsImage(imagename, xlim=xlim, ylim=ylim)
+    im.shift_phasecenter_toward(center_coord)
+    r, theta = im.get_disk_coord(PA=PA, incl=incl)
 
     if im.ndim != 2:
         raise ValueError("The data is not in 2D. Radial profile calculation failed.")
@@ -181,12 +182,12 @@ def calculate_radial_profile(imagename, PA=0., incl=45., center_coord=None, rbin
     if rbins is None:
         rbin_width = im.bmaj / 4.0 # 1/4 of bmaj in arcsec
         if rmax is None:
-            rmax = np.nanmax(im.r)
+            rmax = np.nanmax(r)
         rbins = np.arange(rmin, rmax, rbin_width)
     
     rvals = np.average([rbins[1:], rbins[:-1]], axis=0)
 
-    theta_exclude = ((im.theta > -180. + 0.5*wedge_angle) & (im.theta < -0.5*wedge_angle)) | ((im.theta > 0.5*wedge_angle) & (im.theta < 180. - 0.5*wedge_angle))
+    theta_exclude = ((theta > -180. + 0.5*wedge_angle) & (theta < -0.5*wedge_angle)) | ((theta > 0.5*wedge_angle) & (theta < 180. - 0.5*wedge_angle))
     theta_mask = np.logical_not(theta_exclude)
 
     if mask is not None:
@@ -195,7 +196,7 @@ def calculate_radial_profile(imagename, PA=0., incl=45., center_coord=None, rbin
         mask = theta_mask
 
     mask = mask.flatten()
-    rpnts = im.r.flatten()[mask]
+    rpnts = r.flatten()[mask]
     toavg = im.data.flatten()[mask]
     ridxs = np.digitize(rpnts, rbins)
 
@@ -218,34 +219,41 @@ def calculate_radial_profile(imagename, PA=0., incl=45., center_coord=None, rbin
     return rvals, ravgs, rstds
 
 
-def calculate_averaged_spectra(imagename, save=False, savefilename=None, savefileheader='', **mask_kwargs):
+# def calculate_spectra(imagename, save=False, savefilename=None, savefileheader='', **mask_kwargs)
 
-    image = FitsImage(imagename)
-    image.get_spectral_coord()
-    image.get_mask(**mask_kwargs)
+# def calculate_averaged_spectra(imagename, save=False, savefilename=None, savefileheader='', **mask_kwargs):
 
-    avgspec = np.array([np.nanmean(image[mask]) for image, mask in zip(image.data, image.mask)])
-    specstd = np.array([np.nanstd(image[mask]) for image, mask in zip(image.data, image.mask)])
+#     image = FitsImage(imagename)
+#     image.get_spectral_coord()
+#     image.get_mask(**mask_kwargs)
 
-    if save:
-        if savefilename is None:
-            savefilename = imagename.replace(".fits", ".spectrum.txt")
-        np.savetxt(savefilename, np.stack([image.v, avgspec, specstd], axis=1), fmt="%.8e", header=savefileheader)
+#     avgspec = np.array([np.nanmean(image[mask]) for image, mask in zip(image.data, image.mask)])
+#     specstd = np.array([np.nanstd(image[mask]) for image, mask in zip(image.data, image.mask)])
 
-    return image.v, avgspec, specstd
+#     if save:
+#         if savefilename is None:
+#             savefilename = imagename.replace(".fits", ".spectrum.txt")
+#         np.savetxt(savefilename, np.stack([image.v, avgspec, specstd], axis=1), fmt="%.8e", header=savefileheader)
+
+#     return image.v, avgspec, specstd
 
 
-def calculate_pvdiagram(imagename, center_coord=None, PA=90., rrange=(-10.0, 10.0), width=None, vrange=None, save=False, savefilename=None, overwrite=False):
+def calculate_pvdiagram(imagename_or_data, x=None, y=None, v=None, center_coord=None, xlim=None, ylim=None, PA=90., rrange=(-10.0, 10.0), width=None, vrange=None, save=False, savefilename=None, overwrite=False):
     # fetch FitsImage class
-    print("Loading data ...")
-    image = FitsImage(imagename)
 
-    # construct projected and spectral axes
-    image.get_projected_coord(center_coord=center_coord, PA=PA, incl=0.0)
-    image.get_spectral_coord()
+    if isinstance(imagename_or_data, str):
+        print("Loading data ...")
+        image = FitsImage(imagename_or_data, xlim=xlim, ylim=ylim)
+        image.shift_phasecenter_toward(center_coord)
+        x, y = image.get_disk_coord(PA=PA, incl=0.0, frame="cartesian")
+        velax = image.v
+        data = image.data
+    else:
+        data = imagename_or_data
+        velax = v
 
     # construct interpolate axes
-    dx = abs(image.dx)*deg_to_arcsec
+    dx = abs(np.diff(x).mean())
     x_ip = np.arange(*rrange, dx)
     x_ip = np.append(x_ip, x_ip.max()+dx) # pad the endpoint
 
@@ -267,25 +275,22 @@ def calculate_pvdiagram(imagename, center_coord=None, PA=90., rrange=(-10.0, 10.
         y_ip = y_ip.flatten()
 
     # masking; as the data is huge, it is important to limit the region for calculation by applying a nominal mask to reduce the calculation time
-    pad = image.bmaj # one beam padding
-    spatial_mask = utils.is_within(image.x_proj, (rrange[0]-pad, rrange[1]+pad)) & utils.is_within(image.y_proj, (-width/2-pad, width/2+pad))
+    pad = dx*10 # 10 pixel padding
+    spatial_mask = utils.is_within(x, (rrange[0]-pad, rrange[1]+pad)) & utils.is_within(y, (-width/2-pad, width/2+pad))
     
     # x_mask = (image.x_proj >= rrange[0] - pad) & (image.x_proj <= rrange[1] + pad)
     # y_mask = (image.y_proj >= -width/2-pad) & (image.y_proj <= width/2+pad)
 
     # chennel selection
-    if vrange is None:
-        data = image.data
-        velax = image.v
-    else:
-        v_mask = utils.is_within(image.v, vrange)
-        data = image.data[v_mask, :, :] # exclude non-relevant channels
-        velax = image.v[v_mask]
+    if vrange is not None:
+        v_mask = utils.is_within(velax, vrange)
+        data = data[v_mask, :, :] # exclude non-relevant channels
+        velax = velax[v_mask]
 
     # mask out spatially
     # data[:, ~y_mask | ~x_mask] = 0.0 # put zeros into non-relevant pixels
-    x_orig = image.x_proj[spatial_mask].flatten()
-    y_orig = image.y_proj[spatial_mask].flatten()
+    x_orig = x[spatial_mask].flatten()
+    y_orig = y[spatial_mask].flatten()
 
     # interpolate over each channel
     print("Calculating PV diagram...")
@@ -323,7 +328,10 @@ def calculate_pvdiagram(imagename, center_coord=None, PA=90., rrange=(-10.0, 10.
         header["COMMENT"] = "PV diagram generated by python script"
 
         if savefilename is None:
-            savefilename = imagename.replace(".fits", ".pv.fits")
+            if not isinstance(imagename_or_data, str):
+                raise ValueError("Provide savefilename in the case you provide data array rather than fits image name.")
+            else:
+                savefilename = imagename_or_data.replace(".fits", ".pv.fits")
 
         print("Saving PV diagram into {:s}...".format(savefilename))
         fits.writeto(savefilename, pvdiagram.astype(float), header, overwrite=overwrite, output_verify="silentfix")
