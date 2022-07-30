@@ -19,15 +19,6 @@ plt.rcParams.update(
 )
 
 
-### color pallet
-from matplotlib import colors
-
-freeze = np.loadtxt("../cmap_freeze.txt")
-freeze /= 255.0
-freeze = colors.ListedColormap(freeze, name="freeze")
-
-cmap = {"freeze": freeze}
-
 class Map(FitsImage):
     def __init__(
         self,
