@@ -123,7 +123,7 @@ def calculate_moment(
     # channel mask
     if channel is None and vel_extent is None:
         print("Generating channel mask...")
-        cmask = np.ones(data.shape)
+        # cmask = np.ones(data.shape)
     elif channel is not None:
         print("Generating channel mask based on specified channels...")
         cmask = np.zeros(data.shape)
@@ -135,12 +135,23 @@ def calculate_moment(
         cmask = np.where(cmask != 0.0, 1.0, 0.0)  # manage possible overlaps
     else:
         print("Generating channel mask based on specified velocity range...")
-        firstchannel, lastchannel = [
-            np.argmin(np.abs(velax - v * 1e3)) for v in vel_extent # note velax in m/s, vel_extent in km/s
-        ]
-        cmask = bm.get_channel_mask(
-            data=data, firstchannel=firstchannel, lastchannel=lastchannel
-        )
+        if isinstance(vel_extent, list):
+            cmask = np.zeros(data.shape)
+            for extent in vel_extent:
+                firstchannel, lastchannel = [
+                    np.argmin(np.abs(velax - v * 1e3)) for v in extent # note velax in m/s, vel_extent in km/s
+                ]
+                cmask += bm.get_channel_mask(
+                    data=data, firstchannel=firstchannel, lastchannel=lastchannel
+                )
+            cmask = np.where(cmask != 0.0, 1.0, 0.0)
+        else:
+            firstchannel, lastchannel = [
+                np.argmin(np.abs(velax - v * 1e3)) for v in vel_extent # note velax in m/s, vel_extent in km/s
+            ]
+            cmask = bm.get_channel_mask(
+                data=data, firstchannel=firstchannel, lastchannel=lastchannel
+            )
 
     # mask combination
     print("Combining the masks...")
@@ -164,6 +175,8 @@ def calculate_moment(
             M = collapse(velax=velax, data=data, rms=rms)
         if save:
             bm.save_to_FITS(moments=M, method=moment_method[mom], path=imagename, outname=savefilename)
+            saved_to = savefilename.replace(".fits", "_M0.fits") if savefilename is not None else imagename.replace(".fits", "_M0.fits")
+            print("Saved into {}.".format(saved_to))
         maps[mom] = M
 
     return maps

@@ -186,6 +186,7 @@ class Map(FitsImage):
         vmax=None,
         interval=None,
         stretch=None,
+        **kwargs
     ):
         if not method in ["imshow", "pcolorfast", "pcolormesh"]:
             raise AttributeError(
@@ -197,7 +198,7 @@ class Map(FitsImage):
             stretch = LinearStretch()
         norm = self._normalize(vmin=vmin, vmax=vmax, interval=interval, stretch=stretch)
         plot = getattr(self, "_" + method + "_self")
-        self.colormap = plot(cmap=cmap, norm=norm)
+        self.colormap = plot(cmap=cmap, norm=norm, **kwargs)
 
     def overlay_contour(
         self,
@@ -257,9 +258,15 @@ class Map(FitsImage):
         im = self.ax.contour(self.x, self.y, self.data, levels=levels, colors=color)
         return im
 
-    def _pcolorfast_self(self, cmap="viridis", norm=None):
+    def _pcolorfast_self(self, cmap="viridis", norm=None, **kwargs):
         im = self.ax.pcolorfast(
-            self.x, self.y, self.data, rasterized=True, cmap=cmap, norm=norm
+            self.x, self.y, self.data, rasterized=True, cmap=cmap, norm=norm, **kwargs
+        )
+        return im
+
+    def _pcolormesh_self(self, cmap="viridis", norm=None, **kwargs):
+        im = self.ax.pcolormesh(
+            self.x, self.y, self.data, rasterized=True, cmap=cmap, norm=norm, **kwargs
         )
         return im
 
@@ -366,8 +373,16 @@ class Map(FitsImage):
         extend = self._set_colorbar_extend()
 
         fig = self.ax.get_figure()
-        self.colorbar = fig.colorbar(self.colormap, cax=cax, extend=extend)
+        orientation = "horizontal" if position == "top" or position == "bottom" else "vertical"
+        self.colorbar = fig.colorbar(self.colormap, cax=cax, orientation=orientation, extend=extend)
         self.colorbar.set_label(label, rotation=rotation, labelpad=labelpad)
+
+        if position == "top":
+            cax.xaxis.set_ticks_position('top')
+            cax.xaxis.set_label_position('top')
+        elif position == "bottom":
+            cax.xaxis.set_ticks_position('bottom')
+            cax.xaxis.set_label_position('bottom')
 
     ### APPEARANCE ###
 

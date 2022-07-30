@@ -1,12 +1,13 @@
 import astropy.io.fits as fits
 from astropy.coordinates import SkyCoord
+from scipy.interpolate import interp2d
 import numpy as np
 import astropy.constants as ac
 import astropy.units as u
 import matplotlib.pyplot as plt
 from .utils import is_within
 import casatools, casatasks
-from qdisk.utils import remove_casalogfile
+from qdisk.utils import remove_casalogfile, jypb_to_K_RJ, jypb_to_K
 
 remove_casalogfile()
 
@@ -388,13 +389,31 @@ class FitsImage:
         # beam
         self._get_beam_info()
 
+    def convert_unit(self, unit="K", nu=None, RJ_approx=False):
+        ### assume the original data unit is Jy / beam or mJy / beam
+        if not np.isnan(self.restfreq):
+            nu = self.restfreq
+        elif nu is None:
+            raise ValueError("Rest frequency not found. Please provide it via *nu* argument.")
+
+        data = self.data 
+        if "mJy" in self.data_unit:
+            data *= 1e-3 # in Jy /beam
+        
+        if unit == "K":
+            if RJ_approx:
+                self.data = jypb_to_K_RJ(data, nu, self.beam[:2])
+            else:
+                self.data = jypb_to_K(data, nu, self.beam[:2])
+
     def shift_phasecenter(self, dx=0.0, dy=0.0):
         self.x -= dx
         self.y -= dy
 
-    def shift_phasecenter_toward(self, coord):
+    def shift_phasecenter_toward(self, coord, fix_FOV=False):
         # restore original cube
-        self.restore_original_cube()
+        if not fix_FOV:
+            self.restore_original_cube()
 
         c = SkyCoord(coord, frame="icrs")
         if self.rel_dir_ax:
@@ -407,12 +426,13 @@ class FitsImage:
         self.x -= dx
         self.y -= dy
 
-        self._cutout(xlim=self.xlim, ylim=self.ylim, vlim=self.vlim)
+        if not fix_FOV:
+            self._cutout(xlim=self.xlim, ylim=self.ylim, vlim=self.vlim)
 
-        if self.downsample:
-            if not isinstance(self.downsample, tuple):
-                self.downsample = (self.downsample, 1)
-            self.downsample_cube(*self.downsample)
+            if self.downsample:
+                if not isinstance(self.downsample, tuple):
+                    self.downsample = (self.downsample, 1)
+                self.downsample_cube(*self.downsample)
 
     def get_phasecenter_coord(self):
         x, y = self._get_directional_axis(relative=False)
@@ -423,7 +443,7 @@ class FitsImage:
                 ret.append((c[q - 1] + c[q]) / 2)
             else:
                 ret.append(c[q])
-        return ret
+        return tuple(ret)
 
     def _cutout(self, xlim=None, ylim=None, vlim=None):
         if xlim is not None:
@@ -559,6 +579,262 @@ class FitsImage:
     def nchan(self, nchan):
         self.nchan = nchan
 
+
+
+    def get_threshold_mask(self, threshold=3):
+        self.SNR = self.data / self.rms
+        self.threshold_mask = self.SNR >= threshold
+
+    def get_mask(
+        self,
+        x0=0.0,
+        y0=0.0,
+        rmin=0.0,
+        rmax=np.inf,
+        thetamin=-180.0,
+        thetamax=180.0,
+        PA=0.0,
+        incl=0.0,
+        vmin=-np.inf,
+        vmax=np.inf,
+    ):
+        # get projected coordinate
+        r, t = self.get_disk_coord(x0=x0, y0=y0, PA=PA, incl=incl, frame="polar")
+
+        # radial mask
+        r_mask = np.logical_and(r >= rmin, r <= rmax)
+
+        # azimuthal mask
+        t_mask = np.logical_and(t >= thetamin, t <= thetamax)
+
+        # channel mask
+        if self.ndim > 2:
+            # have 3D directinal masks
+            r_mask = np.expand_dims(r_mask, axis=0)
+            t_mask = np.expand_dims(t_mask, axis=0)
+
+            # calculate velocity axis
+            c_mask = np.logical_and(self.v >= vmin, self.v <= vmax)
+            c_mask = np.expand_dims(c_mask, axis=(1, 2))
+
+        # combine
+        self.mask = np.logical_and(r_mask, t_mask)
+
+        if self.ndim > 2:
+            self.mask = np.logical_and(self.mask, c_mask)
+
+    def save_mask(self, maskname=None, overwrite=True, import_casa=False):
+        if self.ndim > self.mask.ndim:  # data dimension is 3D, whereas mask is 2D
+            self.mask = np.expand_dims(self.mask, axis=0)
+
+        # a few tweaks in the header
+        # del self.header["BMAJ"]
+        # del self.header["BMIN"]
+        # del self.header["BPA"]
+        # self.header["BTYPE"] = ""
+        # self.header["BUNIT"] = ""
+        self.header["COMMENT"] = "0/1 mask created by python script"
+
+        # save as a FITS
+        if maskname is None:
+            maskname = self.fitsname.replace(".fits", ".mask.fits")
+        fits.writeto(
+            maskname,
+            self.mask.astype(float),
+            self.header,
+            overwrite=overwrite,
+            output_verify="silentfix",
+        )
+
+        if import_casa:
+            import casatasks
+            from .utils import remove_casalogfile
+
+            remove_casalogfile()
+
+            casatasks.importfits(
+                fitsimage=maskname,
+                imagename=maskname.replace(".fits", ".image"),
+                overwrite=overwrite,
+            )
+
+    def estimate_rms(self, edgenchan=None, **mask_kwargs):
+
+        self.get_mask(**mask_kwargs)
+
+        if edgenchan is not None:
+            data = np.concatenate((self.data[:edgenchan], self.data[-edgenchan:]))
+            mask = np.concatenate((self.mask[:edgenchan], self.mask[-edgenchan:]))
+            self.rms = np.nanstd(data[mask])
+
+        else:
+            self.rms = np.nanstd(self.data[self.mask])
+
+        return self.rms
+
+    @staticmethod
+    def estimate_rms_each_chan(data, mask):
+
+        rms = np.array(np.nanstd(d[m]) for d, m in zip(data, mask))
+
+        return rms
+
+    def extract_peak_spectrum(self, peak_coord=None, frame="icrs", **mask_kwargs):
+
+        self.get_mask(**mask_kwargs)
+
+        if peak_coord is None:
+            x0, y0 = self.get_phasecenter_coord()
+        else:
+            if isinstance(peak_coord, str):
+                peak_coord = SkyCoord(peak_coord, frame=frame)
+            x0, y0 = peak_coord.ra.arcsec, peak_coord.dec.arcsec
+
+        x, y = self._get_directional_axis(relative=False)
+
+        # set velocity range
+        vrange = (mask_kwargs.get("vmin", -np.inf), mask_kwargs.get("vmax", np.inf))
+        v = self.v[is_within(self.v, vrange)]
+        data = self.data[is_within(self.v, vrange)] 
+        mask = self.mask[is_within(self.v, vrange)]
+
+        spec = np.squeeze([interp2d(y, x, d*m)(y0, x0) for d, m in zip(data, mask)])
+        std = self.estimate_rms_each_chan(data, mask)
+
+        return v, spec, std
+
+    def extract_averaged_spectrum(self, user_mask=None, **mask_kwargs):
+        self.get_mask(**mask_kwargs)
+
+        if user_mask is not None:
+            self.mask *= user_mask
+
+        # set velocity range
+        vrange = (mask_kwargs.get("vmin", -np.inf), mask_kwargs.get("vmax", np.inf))
+        v = self.v[is_within(self.v, vrange)]
+        data = self.data[is_within(self.v, vrange)] 
+        mask = self.mask[is_within(self.v, vrange)]
+
+        spec = np.squeeze(
+            [np.nanmean(d[m]) for d, m in zip(data, mask)]
+        )
+        std = np.squeeze(
+            [np.nanstd(d[m]) for d, m in zip(data, mask)]
+        )
+
+        return v, spec, std
+
+    @staticmethod
+    def get_spectroscopic_data_text(mol, line_data):
+        text = "{:s} $\log_{{10}}A = {:.2f}$ $E_\mathrm{{u}} = {:.1f}$ K".format(
+            # line_data["Species"],
+            mol,
+            line_data["logA [s^-1]"],
+            line_data["E_u [K]"],
+        )
+        return text
+
+    def plot_spectrum(
+        self,
+        ax=None,
+        xval="velocity",
+        yerr=False,
+        baseline=None,
+        vsys=None,
+        plot_vsys=True,
+        linedata_dict=None,
+        linecolor=None,
+        **kwargs
+    ):
+
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        if "vel" in xval:
+            x = self.v
+        elif "freq" in xval:
+            x = self.nu
+        elif "chan" in xval:
+            x = np.arange(self.v.size)
+        else:
+            raise ValueError(
+                "{} for *xval* not supported. Should be 'velocity', 'frequency', or 'channel'.".format(
+                    xval
+                )
+            )
+
+        if yerr:
+            ax.errorbar(**kwargs)
+        else:
+            ax.plot(x, self.avgspec, **kwargs)
+
+        ax.set(xlim=(x.min(), x.max()))
+
+        if baseline is not None:
+            ax.axhline(y=baseline, color="grey", ls="dashed")
+        if plot_vsys:
+            if vsys is None:
+                print("Warning: Provide *vsys* if you want to add vertical line for systemic velocity.")
+            else:
+                ax.axvline(x=vsys, color="grey", ls="dotted")
+
+        if linedata_dict is not None:
+            for mol in linedata_dict.keys():
+                for linedata in linedata_dict[mol]:
+                    vsys = 0.0 if vsys is None else vsys
+                    if "vel" in xval:
+                        x = (1 - float(linedata["nu0 [GHz]"])*1e9 / self.nu0) * ckms + vsys
+                    else:
+                        dnu = - self.nu0 * vsys / ckms
+                        x = float(linedata["nu0 [GHz]"])*1e9 + dnu
+                        if "chan" in xval:
+                            x = (x - self.nu.min()) / np.diff(self.nu).mean()
+
+                    ax.axvline(x=x, color=linecolor[mol], ls="dashed", lw=1.0)
+
+                    # annotate line data info
+                    desc = self.get_spectroscopic_data_text(mol, linedata)
+                    ymin, _ = ax.get_ylim()
+                    ax.text(x=x, y=ymin, s=desc, ha="left", va="bottom", rotation=90, color=linecolor[mol])
+
+        try:
+            return fig, ax
+        except UnboundLocalError:
+            return
+
+    def spectrally_collapse(
+        self, vrange=None, sigma_clip=None, rms=None, noiseedgenchan=3, mode="average"
+    ):
+
+        if self.ndim < 3:
+            raise ValueError("The image is not 3D. Spectral collapse is not avilable.")
+
+        if rms is None:
+            self.estimate_rms(edgenchan=noiseedgenchan)
+            rms = self.rms
+
+        data = self.data
+
+        # self.get_spectral_coord()
+        v = self.v
+
+        if vrange is not None:
+            data = data[is_within(self.v, vrange), :, :]
+            v = v[is_within(self.v, vrange)]
+
+        if sigma_clip is not None:
+            data[data < sigma_clip * rms] = np.nan
+
+        # collapse
+        if "ave" in mode:
+            self.collapsed = np.nanaverage(data, axis=0)
+        elif "s" in mode:
+            self.collapsed = np.nansum(data, axis=0)
+        elif ("mom0" in mode) or ("integ" in mode):
+            dchan = np.diff(v).mean()
+            data[np.isnan(data)] = 0.0
+            self.collapsed = np.trapz(data, dx=dchan, axis=0)
+
     # def get_directional_coord(self, center_coord=None, in_arcsec=True):
     #     """Generate a (RA\cos(Dec), Dec) coordinate (1D each) in arcsec. Assume the unit for coordinates in the header is deg.
 
@@ -676,223 +952,6 @@ class FitsImage:
     #             pass
     #         # self.error = self.error[N0y::N, N0x::N]
     #         # self.mask = self.mask[N0y::N, N0x::N]
-
-    def get_threshold_mask(self, threshold=3):
-        self.SNR = self.data / self.rms
-        self.threshold_mask = self.SNR >= threshold
-
-    def get_mask(
-        self,
-        x0=0.0,
-        y0=0.0,
-        rmin=0.0,
-        rmax=np.inf,
-        thetamin=-180.0,
-        thetamax=180.0,
-        PA=0.0,
-        incl=0.0,
-        vmin=-np.inf,
-        vmax=np.inf,
-    ):
-        # get projected coordinate
-        r, t = self.get_disk_coord(x0=x0, y0=y0, PA=PA, incl=incl, frame="polar")
-
-        # radial mask
-        r_mask = np.logical_and(r >= rmin, r <= rmax)
-
-        # azimuthal mask
-        t_mask = np.logical_and(t >= thetamin, t <= thetamax)
-
-        # channel mask
-        if self.ndim > 2:
-            # have 3D directinal masks
-            r_mask = np.expand_dims(r_mask, axis=0)
-            t_mask = np.expand_dims(t_mask, axis=0)
-
-            # calculate velocity axis
-            c_mask = np.logical_and(self.v >= vmin, self.v <= vmax)
-            c_mask = np.expand_dims(c_mask, axis=(1, 2))
-
-        # combine
-        self.mask = np.logical_and(r_mask, t_mask)
-
-        if self.ndim > 2:
-            self.mask = np.logical_and(self.mask, c_mask)
-
-    def save_mask(self, maskname=None, overwrite=True, import_casa=False):
-        if self.ndim > self.mask.ndim:  # data dimension is 3D, whereas mask is 2D
-            self.mask = np.expand_dims(self.mask, axis=0)
-
-        # a few tweaks in the header
-        # del self.header["BMAJ"]
-        # del self.header["BMIN"]
-        # del self.header["BPA"]
-        # self.header["BTYPE"] = ""
-        # self.header["BUNIT"] = ""
-        self.header["COMMENT"] = "0/1 mask created by python script"
-
-        # save as a FITS
-        if maskname is None:
-            maskname = self.fitsname.replace(".fits", ".mask.fits")
-        fits.writeto(
-            maskname,
-            self.mask.astype(float),
-            self.header,
-            overwrite=overwrite,
-            output_verify="silentfix",
-        )
-
-        if import_casa:
-            import casatasks
-            from .utils import remove_casalogfile
-
-            remove_casalogfile()
-
-            casatasks.importfits(
-                fitsimage=maskname,
-                imagename=maskname.replace(".fits", ".image"),
-                overwrite=overwrite,
-            )
-
-    def estimate_rms(self, edgenchan=None, **mask_kwargs):
-
-        self.get_mask(**mask_kwargs)
-
-        if edgenchan is not None:
-            data = np.concatenate((self.data[:edgenchan], self.data[-edgenchan:]))
-            mask = np.concatenate((self.mask[:edgenchan], self.mask[-edgenchan:]))
-            self.rms = np.nanstd(data[mask])
-
-        else:
-            self.rms = np.nanstd(self.data[self.mask])
-
-    def extract_spectrum(self, vrange=None, user_mask=None, **mask_kwargs):
-        self.get_mask(**mask_kwargs)
-
-        if user_mask is not None:
-            self.mask *= user_mask
-
-        self.avgspec = np.array(
-            [np.nanmean(image[mask]) for image, mask in zip(self.data, self.mask)]
-        )
-        self.specstd = np.array(
-            [np.nanstd(image[mask]) for image, mask in zip(self.data, self.mask)]
-        )
-
-        if vrange is not None:
-            self.avgspec = self.avgspec[is_within(self.v, vrange)]
-            self.specstd = self.specstd[is_within(self.v, vrange)]
-
-    @staticmethod
-    def get_spectroscopic_data_text(mol, line_data):
-        text = "{:s} $\log_{{10}}A = {:.2f}$ $E_\mathrm{{u}} = {:.1f}$ K".format(
-            # line_data["Species"],
-            mol,
-            line_data["logA [s^-1]"],
-            line_data["E_u [K]"],
-        )
-        return text
-
-    def plot_spectrum(
-        self,
-        ax=None,
-        xval="velocity",
-        yerr=False,
-        baseline=None,
-        vsys=None,
-        plot_vsys=True,
-        linedata_dict=None,
-        linecolor=None,
-        **kwargs
-    ):
-
-        if ax is None:
-            fig, ax = plt.subplots()
-
-        if "vel" in xval:
-            x = self.v
-        elif "freq" in xval:
-            x = self.nu
-        elif "chan" in xval:
-            x = np.arange(self.v.size)
-        else:
-            raise ValueError(
-                "{} for *xval* not supported. Should be 'velocity', 'frequency', or 'channel'.".format(
-                    xval
-                )
-            )
-
-        if yerr:
-            ax.errorbar(**kwargs)
-        else:
-            ax.plot(x, self.avgspec, **kwargs)
-
-        ax.set(xlim=(x.min(), x.max()))
-
-        if baseline is not None:
-            ax.axhline(y=baseline, color="grey", ls="dashed")
-        if plot_vsys:
-            if vsys is None:
-                print("Warning: Provide *vsys* if you want to add vertical line for systemic velocity.")
-            else:
-                ax.axvline(x=vsys, color="grey", ls="dotted")
-
-        if linedata_dict is not None:
-            for mol in linedata_dict.keys():
-                for linedata in linedata_dict[mol]:
-                    vsys = 0.0 if vsys is None else vsys
-                    if "vel" in xval:
-                        x = (1 - float(linedata["nu0 [GHz]"])*1e9 / self.nu0) * ckms + vsys
-                    else:
-                        dnu = - self.nu0 * vsys / ckms
-                        x = float(linedata["nu0 [GHz]"])*1e9 + dnu
-                        if "chan" in xval:
-                            x = (x - self.nu.min()) / np.diff(self.nu).mean()
-
-                    ax.axvline(x=x, color=linecolor[mol], ls="dashed", lw=1.0)
-
-                    # annotate line data info
-                    desc = self.get_spectroscopic_data_text(mol, linedata)
-                    ymin, _ = ax.get_ylim()
-                    ax.text(x=x, y=ymin, s=desc, ha="left", va="bottom", rotation=90, color=linecolor[mol])
-
-        try:
-            return fig, ax
-        except UnboundLocalError:
-            return
-
-    def spectrally_collapse(
-        self, vrange=None, sigma_clip=None, rms=None, noiseedgenchan=3, mode="average"
-    ):
-
-        if self.ndim < 3:
-            raise ValueError("The image is not 3D. Spectral collapse is not avilable.")
-
-        if rms is None:
-            self.estimate_rms(edgenchan=noiseedgenchan)
-            rms = self.rms
-
-        data = self.data
-
-        # self.get_spectral_coord()
-        v = self.v
-
-        if vrange is not None:
-            data = data[is_within(self.v, vrange), :, :]
-            v = v[is_within(self.v, vrange)]
-
-        if sigma_clip is not None:
-            data[data < sigma_clip * rms] = np.nan
-
-        # collapse
-        if "ave" in mode:
-            self.collapsed = np.nanaverage(data, axis=0)
-        elif "s" in mode:
-            self.collapsed = np.nansum(data, axis=0)
-        elif ("mom0" in mode) or ("integ" in mode):
-            dchan = np.diff(v).mean()
-            data[np.isnan(data)] = 0.0
-            self.collapsed = np.trapz(data, dx=dchan, axis=0)
 
 
 class PVFitsImage:
