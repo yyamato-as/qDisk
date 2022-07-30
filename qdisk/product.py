@@ -123,7 +123,7 @@ def calculate_moment(
     # channel mask
     if channel is None and vel_extent is None:
         print("Generating channel mask...")
-        # cmask = np.ones(data.shape)
+        cmask = np.ones(data.shape)
     elif channel is not None:
         print("Generating channel mask based on specified channels...")
         cmask = np.zeros(data.shape)
