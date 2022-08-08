@@ -1,3 +1,4 @@
+from pandas import Interval
 from .utils import jypb_to_K_RJ, jypb_to_K
 from .classes import FitsImage, PVFitsImage
 from .utils import is_within, plot_2D_map, add_beam
@@ -188,7 +189,7 @@ class Map(FitsImage):
         stretch=None,
         **kwargs
     ):
-        if not method in ["imshow", "pcolorfast", "pcolormesh"]:
+        if not method in ["imshow", "pcolorfast", "pcolormesh", "contourf"]:
             raise AttributeError(
                 "Method {:s} is not supported for colormap plot.".format(method)
             )
@@ -256,6 +257,21 @@ class Map(FitsImage):
 
     def _contour_self(self, levels=5, color="black"):
         im = self.ax.contour(self.x, self.y, self.data, levels=levels, colors=color)
+        return im
+
+    # def _set_contourf_extend(self):
+
+
+    def _contourf_self(self, levels=10, cmap="viridis", norm=None, **kwargs):
+        if isinstance(levels, (list, np.ndarray)):
+            vmin = np.nanmin(levels)
+            vmax = np.nanmax(levels)
+        else:
+            vmin, vmax = norm.vmin, norm.vmax
+        data = self.data.copy()
+        # data[data < vmin] = vmin
+        # data[data > vmax] = vmax
+        im = self.ax.contourf(self.x, self.y, data, levels=levels, cmap=cmap, norm=norm, **kwargs)
         return im
 
     def _pcolorfast_self(self, cmap="viridis", norm=None, **kwargs):
@@ -383,6 +399,8 @@ class Map(FitsImage):
         elif position == "bottom":
             cax.xaxis.set_ticks_position('bottom')
             cax.xaxis.set_label_position('bottom')
+
+        return cax
 
     ### APPEARANCE ###
 
@@ -1005,6 +1023,20 @@ class ChannelMap(FitsImage):
         )
         return im
 
+    ### ANIMATION
+
+    def animate(self, fig, ax):
+
+        ims = [ig.get_images().copy() for ig in self.imgrid]
+
+        for im in ims:
+            ax.add_image(im[0])
+
+        import matplotlib.animation as animation
+
+        ani = animation.ArtistAnimation(fig, ims, interval=100)
+
+        return ani
     
     ### ADDENDA
 

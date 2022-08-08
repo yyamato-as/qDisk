@@ -593,6 +593,8 @@ class FitsImage:
         rmax=np.inf,
         thetamin=-180.0,
         thetamax=180.0,
+        abs_theta=False,
+        exclude_theta=False,
         PA=0.0,
         incl=0.0,
         vmin=-np.inf,
@@ -605,7 +607,12 @@ class FitsImage:
         r_mask = np.logical_and(r >= rmin, r <= rmax)
 
         # azimuthal mask
-        t_mask = np.logical_and(t >= thetamin, t <= thetamax)
+        t_mask = np.logical_and(t >= np.radians(thetamin), t <= np.radians(thetamax))
+        if abs_theta:
+            t_mask = np.logical_or(t_mask, np.logical_and(t >= -np.radians(thetamax), t <= -np.radians(thetamin)))
+        if exclude_theta:
+            t_mask = np.logical_not(t_mask)
+
 
         # channel mask
         if self.ndim > 2:

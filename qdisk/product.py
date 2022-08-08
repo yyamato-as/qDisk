@@ -182,7 +182,7 @@ def calculate_moment(
     return maps
 
 
-def calculate_radial_profile(imagename, xlim=None, ylim=None, PA=0., incl=45., center_coord=None, rbins=None, rmin=0.0, rmax=None, wedge_angle=30, mask=None, assume_correlated=False, save=False, savefilename=None, savefileheader=''):
+def calculate_radial_profile(imagename, xlim=None, ylim=None, PA=0., incl=45., center_coord=None, rbins=None, rmin=0.0, rmax=None, wedge_angle=None, mask=None, assume_correlated=False, save=False, savefilename=None, savefileheader='', **mask_kwargs):
 
     print("Loading data...")
     im = FitsImage(imagename, xlim=xlim, ylim=ylim)
@@ -200,13 +200,17 @@ def calculate_radial_profile(imagename, xlim=None, ylim=None, PA=0., incl=45., c
     
     rvals = np.average([rbins[1:], rbins[:-1]], axis=0)
 
-    theta_exclude = ((theta > -180. + 0.5*wedge_angle) & (theta < -0.5*wedge_angle)) | ((theta > 0.5*wedge_angle) & (theta < 180. - 0.5*wedge_angle))
-    theta_mask = np.logical_not(theta_exclude)
+    # theta_exclude = ((theta > np.radians(-180. + wedge_angle)) & (theta < np.radians(-wedge_angle))) | ((theta > np.radians(wedge_angle)) & (theta < np.radians(180. - wedge_angle)))
+    # theta_mask = np.logical_not(theta_exclude)
+
+    if wedge_angle is not None:
+        mask_kwargs.update(dict(thetamin=wedge_angle, thetamax=180-wedge_angle, abs_theta=True, exclude_theta=True))
+    im.get_mask(PA=PA, incl=incl, **mask_kwargs)
 
     if mask is not None:
-        mask *= theta_mask
+        mask *= im.mask
     else:
-        mask = theta_mask
+        mask = im.mask
 
     mask = mask.flatten()
     rpnts = r.flatten()[mask]
@@ -215,7 +219,17 @@ def calculate_radial_profile(imagename, xlim=None, ylim=None, PA=0., incl=45., c
 
     # calculate number of beams per bin
     if assume_correlated:
-        nbeams = np.array([im.Omega_pix * len(toavg[ridxs == r]) / im.Omega_beam for r in range(1, rbins.size)]) 
+        if wedge_angle is None:
+            arc_length = np.abs(mask_kwargs.get("thetamax", -180) - mask_kwargs.get("thetamin", 180)) / 360.
+            if mask_kwargs.get("abs_theta", False):
+                arc_length *= 2
+            if mask_kwargs.get("exclude_theta", False):
+                arc_length = 1. - arc_length
+        else:
+            arc_length = wedge_angle*4 / 360.
+        arc_length = 1. if arc_length > 1. else arc_length
+        print(arc_length)
+        nbeams = 2.0 * np.pi * rvals * arc_length / im.bmaj
     else:
         nbeams = 1
     
