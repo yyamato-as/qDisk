@@ -204,6 +204,8 @@ class Map(FitsImage):
     def overlay_contour(
         self,
         fitsname_or_data="self",
+        x=None,
+        y=None,
         data_scaling_factor=1.0,
         levels=5,
         color="grey",
@@ -229,6 +231,8 @@ class Map(FitsImage):
             y = image.y
             data = image.data * data_scaling_factor
         else:
+            x = self.x if x is None else x
+            y = self.y if y is None else y
             data = fitsname_or_data * data_scaling_factor
 
         self.contour = self._contour(

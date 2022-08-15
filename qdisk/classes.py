@@ -1,6 +1,7 @@
 import astropy.io.fits as fits
 from astropy.coordinates import SkyCoord
 from scipy.interpolate import interp2d
+from astropy.convolution import Gaussian2DKernel, convolve_fft
 import numpy as np
 import astropy.constants as ac
 import astropy.units as u
@@ -394,12 +395,14 @@ class FitsImage:
         if not np.isnan(self.restfreq):
             nu = self.restfreq
         elif nu is None:
-            raise ValueError("Rest frequency not found. Please provide it via *nu* argument.")
+            raise ValueError(
+                "Rest frequency not found. Please provide it via *nu* argument."
+            )
 
-        data = self.data 
+        data = self.data
         if "mJy" in self.data_unit:
-            data *= 1e-3 # in Jy /beam
-        
+            data *= 1e-3  # in Jy /beam
+
         if unit == "K":
             if RJ_approx:
                 self.data = jypb_to_K_RJ(data, nu, self.beam[:2])
@@ -579,8 +582,6 @@ class FitsImage:
     def nchan(self, nchan):
         self.nchan = nchan
 
-
-
     def get_threshold_mask(self, threshold=3):
         self.SNR = self.data / self.rms
         self.threshold_mask = self.SNR >= threshold
@@ -599,6 +600,10 @@ class FitsImage:
         incl=0.0,
         vmin=-np.inf,
         vmax=np.inf,
+        user_mask=None,
+        combine="and",
+        convolve=False,
+        tolerance=0.01
     ):
         # get projected coordinate
         r, t = self.get_disk_coord(x0=x0, y0=y0, PA=PA, incl=incl, frame="polar")
@@ -609,10 +614,12 @@ class FitsImage:
         # azimuthal mask
         t_mask = np.logical_and(t >= np.radians(thetamin), t <= np.radians(thetamax))
         if abs_theta:
-            t_mask = np.logical_or(t_mask, np.logical_and(t >= -np.radians(thetamax), t <= -np.radians(thetamin)))
+            t_mask = np.logical_or(
+                t_mask,
+                np.logical_and(t >= -np.radians(thetamax), t <= -np.radians(thetamin)),
+            )
         if exclude_theta:
             t_mask = np.logical_not(t_mask)
-
 
         # channel mask
         if self.ndim > 2:
@@ -629,6 +636,19 @@ class FitsImage:
 
         if self.ndim > 2:
             self.mask = np.logical_and(self.mask, c_mask)
+
+        if user_mask is not None:
+            combine = getattr(np, "logical_" + combine)
+            if user_mask.ndim <= 2 and self.ndim > 2:
+                user_mask = np.expand_dims(user_mask, axis=0)
+            self.mask = combine(self.mask, user_mask)
+
+        if convolve:
+            beam_kernel = Gaussian2DKernel(x_stddev=self.bmaj/self.dpix, y_stddev=self.bmin/self.dpix, theta=np.radians(90.-self.bpa))
+            self.mask = convolve_fft(self.mask, beam_kernel)
+            self.mask = self.mask / np.nanmax(self.mask) > tolerance
+
+        return self.mask
 
     def save_mask(self, maskname=None, overwrite=True, import_casa=False):
         if self.ndim > self.mask.ndim:  # data dimension is 3D, whereas mask is 2D
@@ -702,10 +722,10 @@ class FitsImage:
         # set velocity range
         vrange = (mask_kwargs.get("vmin", -np.inf), mask_kwargs.get("vmax", np.inf))
         v = self.v[is_within(self.v, vrange)]
-        data = self.data[is_within(self.v, vrange)] 
+        data = self.data[is_within(self.v, vrange)]
         mask = self.mask[is_within(self.v, vrange)]
 
-        spec = np.squeeze([interp2d(y, x, d*m)(y0, x0) for d, m in zip(data, mask)])
+        spec = np.squeeze([interp2d(y, x, d * m)(y0, x0) for d, m in zip(data, mask)])
         std = self.estimate_rms_each_chan(data, mask)
 
         return v, spec, std
@@ -719,15 +739,11 @@ class FitsImage:
         # set velocity range
         vrange = (mask_kwargs.get("vmin", -np.inf), mask_kwargs.get("vmax", np.inf))
         v = self.v[is_within(self.v, vrange)]
-        data = self.data[is_within(self.v, vrange)] 
+        data = self.data[is_within(self.v, vrange)]
         mask = self.mask[is_within(self.v, vrange)]
 
-        spec = np.squeeze(
-            [np.nanmean(d[m]) for d, m in zip(data, mask)]
-        )
-        std = np.squeeze(
-            [np.nanstd(d[m]) for d, m in zip(data, mask)]
-        )
+        spec = np.squeeze([np.nanmean(d[m]) for d, m in zip(data, mask)])
+        std = np.squeeze([np.nanstd(d[m]) for d, m in zip(data, mask)])
 
         return v, spec, std
 
@@ -781,7 +797,9 @@ class FitsImage:
             ax.axhline(y=baseline, color="grey", ls="dashed")
         if plot_vsys:
             if vsys is None:
-                print("Warning: Provide *vsys* if you want to add vertical line for systemic velocity.")
+                print(
+                    "Warning: Provide *vsys* if you want to add vertical line for systemic velocity."
+                )
             else:
                 ax.axvline(x=vsys, color="grey", ls="dotted")
 
@@ -790,10 +808,12 @@ class FitsImage:
                 for linedata in linedata_dict[mol]:
                     vsys = 0.0 if vsys is None else vsys
                     if "vel" in xval:
-                        x = (1 - float(linedata["nu0 [GHz]"])*1e9 / self.nu0) * ckms + vsys
+                        x = (
+                            1 - float(linedata["nu0 [GHz]"]) * 1e9 / self.nu0
+                        ) * ckms + vsys
                     else:
-                        dnu = - self.nu0 * vsys / ckms
-                        x = float(linedata["nu0 [GHz]"])*1e9 + dnu
+                        dnu = -self.nu0 * vsys / ckms
+                        x = float(linedata["nu0 [GHz]"]) * 1e9 + dnu
                         if "chan" in xval:
                             x = (x - self.nu.min()) / np.diff(self.nu).mean()
 
@@ -802,12 +822,94 @@ class FitsImage:
                     # annotate line data info
                     desc = self.get_spectroscopic_data_text(mol, linedata)
                     ymin, _ = ax.get_ylim()
-                    ax.text(x=x, y=ymin, s=desc, ha="left", va="bottom", rotation=90, color=linecolor[mol])
+                    ax.text(
+                        x=x,
+                        y=ymin,
+                        s=desc,
+                        ha="left",
+                        va="bottom",
+                        rotation=90,
+                        color=linecolor[mol],
+                    )
 
         try:
             return fig, ax
         except UnboundLocalError:
             return
+
+    def radial_profile(
+        self,
+        PA=0.0,
+        incl=45.0,
+        rbins=None,
+        rmin=0.0,
+        rmax=None,
+        wedge_angle=None,
+        assume_correlated=False,
+        save=False,
+        savefilename=None,
+        savefileheader="",
+        **mask_kwargs
+    ):
+
+        r, _ = self.get_disk_coord(PA=PA, incl=incl)
+
+        if rbins is None:
+            rbin_width = self.bmaj / 4.0 # 1/4 of bmaj in arcsec
+            if rmax is None:
+                rmax = np.nanmax(r)
+            rbins = np.arange(rmin, rmax, rbin_width)
+
+        rvals = np.average([rbins[1:], rbins[:-1]], axis=0)
+
+        if wedge_angle is not None:
+            mask_kwargs.update(dict(thetamin=wedge_angle, thetamax=180-wedge_angle, abs_theta=True, exclude_theta=True))
+        self.get_mask(PA=PA, incl=incl, **mask_kwargs)
+
+        mask = self.mask.flatten()
+        rpnts = r.flatten()[mask]
+        toavg = self.data.flatten()[mask]
+        ridxs = np.digitize(rpnts, rbins)
+
+        # calculate number of beams per bin
+        if assume_correlated:
+            if np.diff(rvals).mean() > (self.bmaj + self.bmin) * 0.5:
+                nbeams = np.array([toavg[ridxs == r].size * self.dpix**2 / self.Omega_beam_arcsec2 for r in range(1, rbins.size)])
+            else:
+                ridxs_full = np.digitize(r.flatten(), rbins)
+                arc_ratio = np.array([toavg[ridxs == r].size / self.data.flatten()[ridxs_full == r].size for r in range(1, rbins.size)])
+                # if wedge_angle is None:
+                #     arc_length = np.abs(mask_kwargs.get("thetamax", -180) - mask_kwargs.get("thetamin", 180)) / 360.
+                #     if mask_kwargs.get("abs_theta", False):
+                #         arc_length *= 2
+                #     if mask_kwargs.get("exclude_theta", False):
+                #         arc_length = 1. - arc_length
+                # else:
+                #     arc_length = wedge_angle*4 / 360.
+                # arc_length = 1. if arc_length > 1. else arc_length
+                # print(arc_length)
+                from scipy.special import ellipe
+                e = np.sin(np.radians(incl))
+                nbeams = 4 * rvals * ellipe(e) * arc_ratio / self.bmaj # elliptic integral for perimeter length of ellipse
+                # nbeams = 2.0 * np.pi * rvals * arc_ratio / self.bmaj
+        else:
+            nbeams = 1
+        
+        print("Calculating radial profile...")
+        ravgs = np.array([np.mean(toavg[ridxs == r]) for r in range(1, rbins.size)])
+        rstds = np.array([np.std(toavg[ridxs == r]) for r in range(1, rbins.size)])
+        rstds /= np.sqrt(nbeams)
+        print("Done.")
+
+        if save:
+            if savefilename is None:
+                savefilename = self.fitsname.replace(".fits", "_radialProfile.txt")
+                if wedge_angle is not None:
+                    savefilename = savefilename.replace(".txt", "Wedge{}deg.txt".format(wedge_angle))
+            np.savetxt(savefilename, np.stack([rvals, ravgs, rstds], axis=1), fmt="%.8e", header=savefileheader)
+
+        return rvals, ravgs, rstds
+
 
     def spectrally_collapse(
         self, vrange=None, sigma_clip=None, rms=None, noiseedgenchan=3, mode="average"
