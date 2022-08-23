@@ -4,6 +4,7 @@ from .utils import remove_casalogfile, plot_2D_map
 remove_casalogfile()
 from astropy.coordinates import SkyCoord
 from .classes import FitsImage, CasaImage
+from .plot import Map
 import astropy.units as u
 import numpy as np
 import pprint
@@ -17,6 +18,7 @@ def imfit_wrapper(
     model="",
     residual="",
     estimates="",
+    logfile="",
     rms=-1,
     comp_name_list=None,
     print_result=True,
@@ -43,7 +45,7 @@ def imfit_wrapper(
     """
 
     print("Fitting 2D Gaussian to {:s}...".format(imagename))
-    result = casatasks.imfit(imagename, region=region, mask=mask, model=model, residual=residual, estimates=estimates, rms=rms)
+    result = casatasks.imfit(imagename, region=region, mask=mask, model=model, residual=residual, estimates=estimates, logfile=logfile, rms=rms)
     print("Done!")
 
     if not result["converged"]:
@@ -113,25 +115,35 @@ def imfit_wrapper(
         pprint.pprint(output_result)
 
     if plot_result:
-        fig, axes = plt.subplots(1, 3, sharex=True, sharey=True, figsize=(9,3))
+        fig, axes = plt.subplots(1, 3, sharex=True, sharey=True, figsize=(9,3), constrained_layout=True)
 
         # data
         ax = axes[0]
-        obsimage = FitsImage(imagename)
-        obsimage.get_directional_coord()
-        plot_2D_map(obsimage.data, ax=ax, X=obsimage.x, Y=obsimage.y, contour=False, beam=obsimage.beam, title="Data", **plot_kw)
-        ax.set(xlabel="$\Delta$R.A. [arcsec]", ylabel="$\Delta$Dec. [arcsec]", aspect=1./ax.get_data_ratio())
+        obsmap = Map(imagename, ax=ax, xlim=plot_kw.pop("xlim", None), ylim=plot_kw.pop("ylim", None))
+        obsmap.plot_colormap(**plot_kw)
+        obsmap.add_beam()
+        obsmap.add_colorbar()
+        # obsimage.get_directional_coord()
+        # plot_2D_map(obsimage.data, ax=ax, X=obsimage.x, Y=obsimage.y, contour=False, beam=obsimage.beam, title="Data", **plot_kw)
+        ax.set(xlabel="$\Delta$R.A. [arcsec]", ylabel="$\Delta$Dec. [arcsec]")
 
         # region
         # fit_region = Regions.parse(region + ' coord=' + header['RADESYS'].lower(), format='crtf')[0]
         # fit_region.to_pixel(WCS(header)).plot(ax=ax, facecolor="none", edgecolor="white", linestyle="dashed")
 
         # model
+        # convert to fits
+        casatasks.exportfits(imagename=model, fitsimage=model+".fits", overwrite=True, dropdeg=True)
         ax = axes[1]
-        modelimage = CasaImage(model)
-        modelimage.get_directional_coord()
-        plot_2D_map(modelimage.data, ax=ax, X=modelimage.x, Y=modelimage.y, contour=False, beam=obsimage.beam, title="Model", **plot_kw)
-        ax.set(aspect=1./ax.get_data_ratio())
+        modelmap = Map(model+".fits", ax=ax, xlim=plot_kw.pop("xlim", None), ylim=plot_kw.pop("ylim", None))
+        modelmap.plot_colormap(**plot_kw)
+        modelmap.add_beam()
+        modelmap.add_colorbar()
+
+        # modelimage = CasaImage(model)
+        # modelimage.get_directional_coord()
+        # plot_2D_map(modelimage.data, ax=ax, X=modelimage.x, Y=modelimage.y, contour=False, beam=obsimage.beam, title="Model", **plot_kw)
+        # ax.set(aspect=1./ax.get_data_ratio())
 
         # # region
         # fit_region = Regions.parse(region + ' coord=' + header['RADESYS'].lower(), format='crtf')[0]
@@ -141,16 +153,21 @@ def imfit_wrapper(
         # ax.tick_params(axis="y", labelleft=False)
 
         # residual
+        casatasks.exportfits(imagename=residual, fitsimage=residual+".fits", overwrite=True, dropdeg=True)
         ax = axes[2]
-        residualimage = CasaImage(residual)
-        residualimage.get_directional_coord()
-        plot_kw.update(dict(cmap_kw={
-            "cmap": "RdBu_r",
-            "vmin": -3 * rms,
-            "vmax": 3 * rms,
-        }))
-        plot_2D_map(residualimage.data, ax=ax, X=residualimage.x, Y=residualimage.y, contour=False, beam=obsimage.beam, title="Residual", **plot_kw)
-        ax.set(aspect=1./ax.get_data_ratio())
+        modelmap = Map(residual+".fits", ax=ax, xlim=plot_kw.pop("xlim", None), ylim=plot_kw.pop("ylim", None))
+        modelmap.plot_colormap(cmap="RdBu_r", vmin=-3*rms, vmax=3*rms)
+        modelmap.add_beam()
+        modelmap.add_colorbar()
+        # residualimage = CasaImage(residual)
+        # residualimage.get_directional_coord()
+        # plot_kw.update(dict(cmap_kw={
+        #     "cmap": "RdBu_r",
+        #     "vmin": -3 * rms,
+        #     "vmax": 3 * rms,
+        # }))
+        # plot_2D_map(residualimage.data, ax=ax, X=residualimage.x, Y=residualimage.y, contour=False, beam=obsimage.beam, title="Residual", **plot_kw)
+        # ax.set(aspect=1./ax.get_data_ratio())
         # plot
 
         # plt.subplots_adjust(wspace=0.4)

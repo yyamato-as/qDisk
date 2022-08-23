@@ -603,7 +603,7 @@ class FitsImage:
         user_mask=None,
         combine="and",
         convolve=False,
-        tolerance=0.01
+        tolerance=0.01,
     ):
         # get projected coordinate
         r, t = self.get_disk_coord(x0=x0, y0=y0, PA=PA, incl=incl, frame="polar")
@@ -644,7 +644,11 @@ class FitsImage:
             self.mask = combine(self.mask, user_mask)
 
         if convolve:
-            beam_kernel = Gaussian2DKernel(x_stddev=self.bmaj/self.dpix, y_stddev=self.bmin/self.dpix, theta=np.radians(90.-self.bpa))
+            beam_kernel = Gaussian2DKernel(
+                x_stddev=self.bmaj / self.dpix,
+                y_stddev=self.bmin / self.dpix,
+                theta=np.radians(90.0 - self.bpa),
+            )
             self.mask = convolve_fft(self.mask, beam_kernel)
             self.mask = self.mask / np.nanmax(self.mask) > tolerance
 
@@ -837,6 +841,111 @@ class FitsImage:
         except UnboundLocalError:
             return
 
+    def get_flux(self, rms=None, **mask_kwargs):
+        mask = self.get_mask(**mask_kwargs).flatten()
+
+        tointeg = self.data.flatten()[mask]
+        flux = np.sum(tointeg / self.Omega_beam_arcsec2 * self.dpix**2) 
+        if rms is not None:
+            flux_error = rms * np.sqrt(2 * tointeg.size * self.dpix**2 / self.Omega_beam_arcsec2) #/ self.Omega_beam_arcsec2 * self.dpix**2
+        else:
+            flux_error = None
+
+        return flux, flux_error
+
+    def get_cumulative_flux(self, rms=None, PA=0.0, incl=0.0, rmin=0.0, dr="beam", rmax=None, criteria="val"):
+
+        r, _ = self.get_disk_coord(PA=PA, incl=incl)
+        dr = self.bmaj if dr == "beam" else self.dpix if dr == "pix" else dr
+        rmax = np.nanmax(r) if rmax is None else rmax
+        mask_radii = np.arange(rmin, rmax+dr, dr)
+
+        f0 = 0.0
+        df0 = 0.0
+        radii = []
+        cum_f = []
+        cum_df = []
+
+        print("Applying curve-of-growth method...")
+        for r in mask_radii:
+            f, df = self.get_flux(rms=rms, PA=PA, incl=incl, rmin=0.0, rmax=r)
+            radii.append(r)
+            cum_f.append(f)
+            cum_df.append(df)
+
+            if criteria == "val":
+                condition = f < f0
+            elif "sigma" in criteria:
+                condition = f < f0 + float(criteria.replace("sigma", ""))*df0
+
+            if condition:
+                break
+            else:
+                f0 = f
+                df0 = df
+
+        return radii, cum_f, cum_df
+
+    # def get_cumurative_flux(
+    #     self,
+    #     PA=0.0,
+    #     incl=45.0,
+    #     rbins=None,
+    #     rmin=0.0,
+    #     rmax=None,
+    #     wedge_angle=None,
+    #     assume_correlated=True,
+    #     **mask_kwargs
+    # ):
+
+    #     r, I, dI = self.radial_profile(
+    #         PA=PA,
+    #         incl=incl,
+    #         rbins=rbins,
+    #         rmin=rmin,
+    #         rmax=rmax,
+    #         wedge_angle=wedge_angle,
+    #         assume_correlated=assume_correlated,
+    #         **mask_kwargs
+    #     )
+
+    #     # covert to the flux
+    #     f = I * 
+
+    #     return
+
+    # def curve_of_growth(self, PA=0.0, incl=0.0, start=0.0, stop=None, dr="beam", plot=False, ax=None):
+    #     if dr == "beam":
+    #         dr = self.bmaj
+    #     elif dr == "pix":
+    #         dr = self.dpix
+
+    #     if plot and ax is None:
+    #         fig, ax = plt.subplots()
+
+    #     stop = np.nanmax(self.x) if stop is None else stop
+    #     r_array = np.arange(start, stop+dr, dr)
+    #     f_prev = 0.0
+
+    #     for r in r_array:
+    #         self.get_mask(PA=PA, incl=incl, rmax=r)
+    #         f = np.sum(self.data * self.mask) / self.Omega_beam_arcsec2 * self.dpix**2
+
+    #         if f < f_prev:
+    #             break
+    #         else:
+    #             f_prev = f
+    #             if plot:
+    #                 ax.scatter(r, f, color="tab:blue")
+
+    #     if plot:
+    #         return r, f, ax
+    #     else:
+    #         return r, f, None
+
+    # def cut(self, PA=0.0, incl=45.0, range=None, axis="major", offset=0.0):
+
+
     def radial_profile(
         self,
         PA=0.0,
@@ -845,7 +954,7 @@ class FitsImage:
         rmin=0.0,
         rmax=None,
         wedge_angle=None,
-        assume_correlated=False,
+        assume_correlated=True,
         save=False,
         savefilename=None,
         savefileheader="",
@@ -855,7 +964,7 @@ class FitsImage:
         r, _ = self.get_disk_coord(PA=PA, incl=incl)
 
         if rbins is None:
-            rbin_width = self.bmaj / 4.0 # 1/4 of bmaj in arcsec
+            rbin_width = self.bmaj / 4.0  # 1/4 of bmaj in arcsec
             if rmax is None:
                 rmax = np.nanmax(r)
             rbins = np.arange(rmin, rmax, rbin_width)
@@ -863,7 +972,14 @@ class FitsImage:
         rvals = np.average([rbins[1:], rbins[:-1]], axis=0)
 
         if wedge_angle is not None:
-            mask_kwargs.update(dict(thetamin=wedge_angle, thetamax=180-wedge_angle, abs_theta=True, exclude_theta=True))
+            mask_kwargs.update(
+                dict(
+                    thetamin=wedge_angle,
+                    thetamax=180 - wedge_angle,
+                    abs_theta=True,
+                    exclude_theta=True,
+                )
+            )
         self.get_mask(PA=PA, incl=incl, **mask_kwargs)
 
         mask = self.mask.flatten()
@@ -874,10 +990,23 @@ class FitsImage:
         # calculate number of beams per bin
         if assume_correlated:
             if np.diff(rvals).mean() > (self.bmaj + self.bmin) * 0.5:
-                nbeams = np.array([toavg[ridxs == r].size * self.dpix**2 / self.Omega_beam_arcsec2 for r in range(1, rbins.size)])
+                nbeams = np.array(
+                    [
+                        toavg[ridxs == r].size
+                        * self.dpix**2
+                        / self.Omega_beam_arcsec2
+                        for r in range(1, rbins.size)
+                    ]
+                )
             else:
                 ridxs_full = np.digitize(r.flatten(), rbins)
-                arc_ratio = np.array([toavg[ridxs == r].size / self.data.flatten()[ridxs_full == r].size for r in range(1, rbins.size)])
+                arc_ratio = np.array(
+                    [
+                        toavg[ridxs == r].size
+                        / self.data.flatten()[ridxs_full == r].size
+                        for r in range(1, rbins.size)
+                    ]
+                )
                 # if wedge_angle is None:
                 #     arc_length = np.abs(mask_kwargs.get("thetamax", -180) - mask_kwargs.get("thetamin", 180)) / 360.
                 #     if mask_kwargs.get("abs_theta", False):
@@ -889,12 +1018,15 @@ class FitsImage:
                 # arc_length = 1. if arc_length > 1. else arc_length
                 # print(arc_length)
                 from scipy.special import ellipe
+
                 e = np.sin(np.radians(incl))
-                nbeams = 4 * rvals * ellipe(e) * arc_ratio / self.bmaj # elliptic integral for perimeter length of ellipse
+                nbeams = (
+                    4 * rvals * ellipe(e) * arc_ratio / self.bmaj
+                )  # elliptic integral for perimeter length of ellipse
                 # nbeams = 2.0 * np.pi * rvals * arc_ratio / self.bmaj
         else:
             nbeams = 1
-        
+
         print("Calculating radial profile...")
         ravgs = np.array([np.mean(toavg[ridxs == r]) for r in range(1, rbins.size)])
         rstds = np.array([np.std(toavg[ridxs == r]) for r in range(1, rbins.size)])
@@ -905,11 +1037,17 @@ class FitsImage:
             if savefilename is None:
                 savefilename = self.fitsname.replace(".fits", "_radialProfile.txt")
                 if wedge_angle is not None:
-                    savefilename = savefilename.replace(".txt", "Wedge{}deg.txt".format(wedge_angle))
-            np.savetxt(savefilename, np.stack([rvals, ravgs, rstds], axis=1), fmt="%.8e", header=savefileheader)
+                    savefilename = savefilename.replace(
+                        ".txt", "Wedge{}deg.txt".format(wedge_angle)
+                    )
+            np.savetxt(
+                savefilename,
+                np.stack([rvals, ravgs, rstds], axis=1),
+                fmt="%.8e",
+                header=savefileheader,
+            )
 
         return rvals, ravgs, rstds
-
 
     def spectrally_collapse(
         self, vrange=None, sigma_clip=None, rms=None, noiseedgenchan=3, mode="average"
