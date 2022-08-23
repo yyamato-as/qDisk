@@ -8,7 +8,7 @@ source = "L1489IRS"
 config = "SBLB"
 center_coord = source_dict[source]["radec"]
 imagepath = "/works/yamato/eDisk/L1489IRS/custom_images/"
-wedge_angle = 45
+wedge_angle = None
 rmax = 8
 
 imagename = imagepath + "{:s}_{:s}_continuum_robust_1.0.image.tt0.fits".format(
@@ -30,8 +30,9 @@ plt.show()
 fig, ax = plt.subplots(constrained_layout=True)
 imagemap = Map(imagename, ax=ax, center_coord=center_coord, xlim=(-rmax, rmax), ylim=(-rmax, rmax))
 imagemap.plot_colormap(cmap="inferno", vmin=0.0, stretch=AsinhStretch(a=0.02))
-mask = imagemap.get_mask(rmax=rmax, thetamin=wedge_angle, thetamax=180 - wedge_angle, abs_theta=True, exclude_theta=True, PA=source_dict[source]["PA"], incl=source_dict[source]["incl"])
-imagemap.overlay_contour(mask, x=imagemap.x, y=imagemap.y)
+if wedge_angle is None:
+    image.get_mask(rmax=rmax, PA=source_dict[source]["PA"], incl=source_dict[source]["incl"])
+imagemap.overlay_contour(image.mask, x=image.x, y=image.y)
 
 plt.show()
 
