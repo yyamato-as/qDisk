@@ -12,6 +12,7 @@ import os
 from astropy.coordinates import SkyCoord
 import astropy.io.fits as fits
 from astropy.wcs import WCS
+import bettermoments as bm
 # from regions import Regions
 
 c = ac.c.cgs.value
@@ -20,6 +21,14 @@ h = ac.h.cgs.value
 ckms = ac.c.to(u.km/u.s).value
 
 arcsec = np.pi / 180. / 3600. # in rad
+
+moment_method = {
+    "0": "zeroth",
+    "1": "first",
+    "8": "eighth",
+    "9": "ninth",
+    "q": "quadratic",
+}
 
 # if nologfile:
 #     import os 
@@ -131,7 +140,7 @@ def jypb_to_K(I, nu, beam):
     T = h * nu / k_B / np.log(1 + 2 * h * nu**3 / (c**2 * T))
 
     if isinstance(I, np.ndarray):
-        return np.where(T >= 0.0, T, -T)
+        return np.where(I >= 0.0, T, -T)
     elif isinstance(I, float):
         return T if I >= 0.0 else -T
 
@@ -347,6 +356,51 @@ def plot_1D_profile(x, y, yerr=None, ax=None, color="black", style="line", label
 
 def is_within(value, range):
     return np.logical_and(value >= range[0], value <= range[1])
+
+
+def bettermoments_collapse_wrapper(data, moment="0", velax=None, rms=None):
+
+    collapse = getattr(bm, f"collapse_{moment_method[moment]}")
+    M = collapse(velax=velax, data=data, rms=rms)
+
+    return M
+
+
+def process_chunked_array(func, array, nchunks=4, axis=0, verbose=True, **kwargs):
+    """Processing the large array which is out-of-memory using chunking. Assume the function will return two arrays. This should make the moment calculation faster!
+
+    Parameters
+    ----------
+    func : function
+        The function you want to calculate
+    args : dict
+        A dictionary of arguments for ``func``
+    targname : str
+        The name of argument you want to chunk
+    nchunks : int, optional
+        Number of chunks, by default 4
+    axis : int, optional
+        The axis over which the `func` performed the process, by default 0
+
+    Returns
+    -------
+    tuple of two arrays
+        restored arrays
+    """
+
+    axis -= 1
+    split_arrays = np.split(array, indices_or_sections=nchunks, axis=axis)
+
+    chunked_processed_arrays = []
+    for i, arr in enumerate(split_arrays):
+        if verbose:
+            print("Computing chunk {}...".format(i))
+        ret = func(arr, **kwargs) 
+        chunked_processed_arrays.append(ret)
+    if verbose:
+        print("Restoring the original array...")
+    chunked_processed_arrays = [t for t in zip(*chunked_processed_arrays)]
+    return tuple([np.concatenate(arrs, axis=axis) for arrs in chunked_processed_arrays])
 
 
 #def plot_channel_maps(header, data)

@@ -1,6 +1,7 @@
+from ast import Assert
 import astropy.io.fits as fits
 from astropy.coordinates import SkyCoord
-from scipy.interpolate import interp2d
+from scipy.interpolate import interp2d, griddata
 from astropy.convolution import Gaussian2DKernel, convolve_fft
 import numpy as np
 import astropy.constants as ac
@@ -8,7 +9,8 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 from .utils import is_within
 import casatools, casatasks
-from qdisk.utils import remove_casalogfile, jypb_to_K_RJ, jypb_to_K
+from qdisk.utils import remove_casalogfile, jypb_to_K_RJ, jypb_to_K, bettermoments_collapse_wrapper, process_chunked_array, moment_method
+import bettermoments as bm
 
 remove_casalogfile()
 
@@ -578,6 +580,10 @@ class FitsImage:
     def nchan(self):
         return self.v.size
 
+    @property
+    def dchan(self):
+        return np.abs(np.diff(self.v).mean())
+
     @nchan.setter
     def nchan(self, nchan):
         self.nchan = nchan
@@ -845,20 +851,26 @@ class FitsImage:
         mask = self.get_mask(**mask_kwargs).flatten()
 
         tointeg = self.data.flatten()[mask]
-        flux = np.sum(tointeg / self.Omega_beam_arcsec2 * self.dpix**2) 
+        flux = np.sum(tointeg / self.Omega_beam_arcsec2 * self.dpix**2)
         if rms is not None:
-            flux_error = rms * np.sqrt(2 * tointeg.size * self.dpix**2 / self.Omega_beam_arcsec2) #/ self.Omega_beam_arcsec2 * self.dpix**2
-        else:
-            flux_error = None
+            flux_error = rms * np.sqrt(
+                2 * tointeg.size * self.dpix**2 / self.Omega_beam_arcsec2
+            )  # / self.Omega_beam_arcsec2 * self.dpix**2
+        elif hasattr(self, rms):
+            flux_error = self.rms * np.sqrt(
+                2 * tointeg.size * self.dpix**2 / self.Omega_beam_arcsec2
+            )
 
         return flux, flux_error
 
-    def get_cumulative_flux(self, rms=None, PA=0.0, incl=0.0, rmin=0.0, dr="beam", rmax=None, criteria="val"):
+    def get_cumulative_flux(
+        self, rms=None, PA=0.0, incl=0.0, rmin=0.0, dr="beam", rmax=None, criteria="val"
+    ):
 
         r, _ = self.get_disk_coord(PA=PA, incl=incl)
         dr = self.bmaj if dr == "beam" else self.dpix if dr == "pix" else dr
         rmax = np.nanmax(r) if rmax is None else rmax
-        mask_radii = np.arange(rmin, rmax+dr, dr)
+        mask_radii = np.arange(rmin, rmax + dr, dr)
 
         f0 = 0.0
         df0 = 0.0
@@ -876,7 +888,7 @@ class FitsImage:
             if criteria == "val":
                 condition = f < f0
             elif "sigma" in criteria:
-                condition = f < f0 + float(criteria.replace("sigma", ""))*df0
+                condition = f < f0 + float(criteria.replace("sigma", "")) * df0
 
             if condition:
                 break
@@ -910,7 +922,7 @@ class FitsImage:
     #     )
 
     #     # covert to the flux
-    #     f = I * 
+    #     f = I *
 
     #     return
 
@@ -943,8 +955,278 @@ class FitsImage:
     #     else:
     #         return r, f, None
 
-    # def cut(self, PA=0.0, incl=45.0, range=None, axis="major", offset=0.0):
+    def _extract_cut(self, x, y, x_ip, y_ip, pad=10):
 
+        # mask out non-relevant image
+        pad = self.dpix * pad  # 10 pixel padding
+        mask = is_within(x, (x_ip.min() - pad, x_ip.max() + pad)) & is_within(
+            y, (y_ip.min() - pad, y_ip.max() + pad)
+        )
+
+        x, y = x[mask].flatten(), y[mask].flatten()
+
+        cut = griddata(
+            np.array([y, x]).T, self.data[mask].flatten(), (y_ip, x_ip), method="cubic"
+        )
+
+        return cut
+
+    def cut(
+        self,
+        PA=0.0,
+        incl=45.0,
+        rmax=None,
+        range=None,
+        axis="major",
+        offset=0.0,
+        side_average=True,
+    ):
+
+        major, minor = self.get_disk_coord(PA=PA, incl=incl, frame="cartesian")
+
+        # get interpolate axis
+        if range is not None:
+            x_ip = np.arange(*range, self.dpix)  # x for the axis along the profile cut
+        else:
+            rmax = np.nanmax(minor) if rmax is None else rmax
+            x_ip_oneside = np.arange(
+                self.dpix * 0.5, rmax, self.dpix
+            )  # x for the axis along the profile cut
+            x_ip = np.concatenate((-x_ip_oneside[::-1], x_ip_oneside))
+
+        y_ip = np.full_like(x_ip, offset)
+
+        # set the original (x,y) axis
+        x, y = (major, minor) if axis == "major" else (minor, major)
+
+        # interpolation (cubic)
+        r = x_ip
+        cut = self._extract_cut(x, y, x_ip, y_ip)
+        cut_err = np.full_like(cut, self.rms)
+
+        if side_average:
+            r = x_ip_oneside
+            cut = np.mean([cut[x_ip > 0], cut[x_ip < 0][::-1]], axis=0)
+            cut_err = np.full_like(cut, self.rms) / np.sqrt(2)
+            x_ip = x_ip_oneside
+
+        return r, cut, cut_err
+
+    def pvcut(
+        self,
+        PA=0.0,
+        incl=0.0,
+        xrange=None,
+        vrange=None,
+        axis="major",
+        offset=0.0,
+        width=None,
+        save=False,
+        savefilename=None,
+    ):
+
+        if self.ndim < 3:
+            raise AssertionError(
+                "Dimension of the data is not in 3D. pvcut is not possible."
+            )
+
+        major, minor = self.get_disk_coord(PA=PA, incl=incl, frame="cartesian")
+
+        x, y = (major, minor) if axis == "major" else (minor, major)
+
+        # interpolation axis
+        xrange = (x.min(), x.max()) if xrange is None else xrange
+        x_interp = np.arange(*xrange, self.dpix)
+        x_interp = np.append(x_interp, x_interp.max() + self.dpix)
+
+        # store the positional axis and data and velcoity axis
+        posax = x_interp.copy()
+        velax = self.v.copy()
+        data = self.data.copy()
+
+        # manage width parameter
+        if width is None:
+            width = 0.0
+            y_interp = np.full_like(
+                x_interp, offset
+            )  # trace y = offset on the projected coord
+        else:
+            y_interp = np.arange(offset - width / 2, offset + width / 2, self.dpix)
+            y_interp = np.append(y_interp, y_interp.max() + self.dpix)
+
+            # for interpolation
+            x_interp, y_interp = np.meshgrid(x_interp, y_interp)
+            x_interp = x_interp.flatten()
+            y_interp = y_interp.flatten()
+
+        # masking to reduce the calcullation time
+        pad = self.dpix * 10  # 10 pixel padding
+        mask = is_within(x, (xrange[0] - pad, xrange[1] + pad)) & is_within(
+            y, (-width / 2 - pad, width / 2 + pad)
+        )
+        x = x[mask].flatten()
+        y = y[mask].flatten()
+
+        # velocity mask
+        if vrange is not None:
+            v_mask = is_within(velax, vrange)
+            data = data[v_mask, :, :]  # exclude non-relevant channels
+            velax = velax[v_mask]
+
+        print("Calculating PV diagram...")
+        # interpolate over the cube
+        pvdiagram = np.array(
+            [
+                griddata(
+                    np.array([y, x]).T,
+                    im[mask].flatten(),
+                    (y_interp, x_interp),
+                    method="cubic",
+                )
+                for im in data
+            ]
+        )
+
+        # average along y axis if width is not None
+        if width is not None:
+            pvdiagram = np.nanmean(
+                pvdiagram.reshape(velax.size, -1, posax.size), axis=1
+            )
+
+        print("Done.")
+
+        if save:
+            # modify the header for PV diagram; will drop any degenerate axes
+            header = self.header.copy()
+            header["NAXIS"] = 2
+            header["NAXIS1"] = posax.size
+            header["NAXIS2"] = velax.size
+            # offset axis
+            header["CTYPE1"] = "OFFSET"
+            header["CRPIX1"] = np.ceil(posax.size / 2).astype(np.float32)
+            header["CDELT1"] = self.dpix
+            header["CRVAL1"] = posax[int(header["CRPIX1"]) - 1].astype(np.float32)
+            header["CUNIT1"] = "arcsec"
+            # frequency axis
+            frqax = self.nu
+            if vrange is not None:
+                frqax = frqax[v_mask]
+            header["CTYPE2"] = "FREQ"
+            header["CRPIX2"] = np.ceil(frqax.size / 2).astype(np.float32)
+            header["CDELT2"] = np.diff(frqax)[0].astype(np.float32)
+            header["CRVAL2"] = frqax[int(header["CRPIX2"]) - 1].astype(np.float32)
+            header["CUNIT2"] = "Hz"
+            # remove No. 3 axis
+            for key in list(header.keys()):
+                if "3" in key:
+                    del header[key]
+            # comment
+            header["COMMENT"] = "PV diagram generated by python script"
+
+            if savefilename is None:
+                savefilename = self.fitsname.replace(".fits", ".pv.fits")
+
+            print("Saving PV diagram into {:s}...".format(savefilename))
+            fits.writeto(
+                savefilename,
+                pvdiagram.astype(float),
+                header,
+                overwrite=True,
+                output_verify="silentfix",
+            )
+
+        return posax, velax, pvdiagram
+
+    def moment_map(
+        self,
+        moment="0",
+        rms=None,
+        noisechannel=3,
+        mask=None,
+        channel=None,
+        vel_extent=None,
+        threshold=None,
+        save=True,
+        savefilename=None,
+        nchunks=None,
+        verbose=False,
+    ):
+        
+        if rms is None and not hasattr(self, "rms"):
+            if verbose:
+                print("Estimating rms...")
+            self.estimate_rms(edgenchan=noisechannel)
+            if verbose:
+                print("rms: {} mJy/beam".format(rms * 1e3))
+        
+        rms = self.rms.copy() if rms is None else rms
+        data = self.data.copy()
+
+        # user mask
+        mask = np.ones(data.shape) if mask is None else mask
+
+        # threshold mask
+        print("Generating threshold mask...")
+        if threshold is not None:
+            tmask = bm.get_threshold_mask(data=data, clip=threshold)
+        else:
+            tmask = np.ones(data.shape)
+
+        # channel mask
+        if channel is None and vel_extent is None:
+            print("Generating channel mask...")
+            cmask = np.ones(data.shape)
+        elif channel is not None:
+            print("Generating channel mask based on specified channels...")
+            cmask = np.zeros(data.shape)
+            for cr in channel.split(";"):
+                firstchannel, lastchannel = [int(c) for c in cr.split("~")]
+                cmask += bm.get_channel_mask(
+                    data=data, firstchannel=firstchannel, lastchannel=lastchannel
+                )
+            cmask = np.where(cmask != 0.0, 1.0, 0.0)  # manage possible overlaps
+        else:
+            print("Generating channel mask based on specified velocity range...")
+            if isinstance(vel_extent, list):
+                cmask = np.zeros(data.shape)
+                for extent in vel_extent:
+                    firstchannel, lastchannel = [
+                        np.argmin(np.abs(self.v - v * 1e3)) for v in extent # note velax in m/s, vel_extent in km/s
+                    ]
+                    cmask += bm.get_channel_mask(
+                        data=data, firstchannel=firstchannel, lastchannel=lastchannel
+                    )
+                cmask = np.where(cmask != 0.0, 1.0, 0.0)
+            else:
+                firstchannel, lastchannel = [
+                    np.argmin(np.abs(self.v - v * 1e3)) for v in vel_extent # note velax in m/s, vel_extent in km/s
+                ]
+                cmask = bm.get_channel_mask(
+                    data=data, firstchannel=firstchannel, lastchannel=lastchannel
+                )
+        
+        # mask combination
+        print("Combining the masks...")
+        mask = bm.get_combined_mask(
+            user_mask=mask, threshold_mask=tmask, channel_mask=cmask, combine="and"
+        )
+
+        # masked data
+        data *= mask
+
+        # moment calc by bettermoments; moment 1 may take time
+        print("Calculating moment {}...".format(moment))
+        if nchunks is not None:
+            print("Going to compute with {} chunks...".format(nchunks))
+            M = process_chunked_array(bettermoments_collapse_wrapper, data, moment=moment, velax=self.v, rms=rms, nchunks=nchunks, axis=0)
+        else:
+            M = bettermoments_collapse_wrapper(velax=self.v, data=data, rms=rms)
+        if save:
+            bm.save_to_FITS(moments=M, method=moment_method[moment], path=self.fitsname, outname=savefilename)
+            saved_to = savefilename.replace(".fits", "_*.fits") if savefilename is not None else self.fitsname.replace(".fits", "_*.fits")
+            print("Saved into {}.".format(saved_to))
+        
+        return
 
     def radial_profile(
         self,

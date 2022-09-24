@@ -1,7 +1,9 @@
+from dis import dis
 from pandas import Interval
 from .utils import jypb_to_K_RJ, jypb_to_K
 from .classes import FitsImage, PVFitsImage
 from .utils import is_within, plot_2D_map, add_beam
+from .model import Keplerian_velocity
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import ImageGrid
@@ -211,6 +213,7 @@ class Map(FitsImage):
         color="grey",
         linewidth=1.0,
         linestyle="solid",
+        **kwargs
     ):
 
         if fitsname_or_data == "self":
@@ -243,10 +246,11 @@ class Map(FitsImage):
             color=color,
             linewidth=linewidth,
             linestyle=linestyle,
+            **kwargs
         )
 
     def _contour(
-        self, x, y, data, levels=5, color="black", linewidth=1.0, linestyle="solid"
+        self, x, y, data, levels=5, color="black", linewidth=1.0, linestyle="solid", **kwargs
     ):
         im = self.ax.contour(
             x,
@@ -256,6 +260,7 @@ class Map(FitsImage):
             colors=color,
             linewidths=linewidth,
             linestyles=linestyle,
+            **kwargs
         )
         return im
 
@@ -560,6 +565,23 @@ class PVDiagram(PVFitsImage):
 
         self._data_scaling(factor=self.data_scaling_factor)
 
+    def convert_unit(self, unit="K", nu=None, RJ_approx=False):
+        ### assume the original data unit is Jy / beam or mJy / beam
+        if not np.isnan(self.restfreq):
+            nu = self.restfreq
+        elif nu is None:
+            raise ValueError("Rest frequency not found. Please provide it via *nu* argument.")
+
+        data = self.data / self.data_scaling_factor # restore original unit
+        if "mJy" in self.data_unit:
+            data *= 1e-3 # in Jy /beam
+        
+        if unit == "K":
+            if RJ_approx:
+                self.data = jypb_to_K_RJ(data, nu, self.beam[:2])
+            else:
+                self.data = jypb_to_K(data, nu, self.beam[:2])
+
     def plot_colormap(
         self,
         method="pcolorfast",
@@ -589,6 +611,7 @@ class PVDiagram(PVFitsImage):
         color="grey",
         linewidth=1.0,
         linestyle="solid",
+        **kwargs
     ):
 
         if fitsname_or_data == "self":
@@ -617,10 +640,11 @@ class PVDiagram(PVFitsImage):
             color=color,
             linewidth=linewidth,
             linestyle=linestyle,
+            **kwargs
         )
 
     def _contour(
-        self, x, v, data, levels=5, color="black", linewidth=1.0, linestyle="solid"
+        self, x, v, data, levels=5, color="black", linewidth=1.0, linestyle="solid", **kwargs
     ):
         im = self.ax.contour(
             x,
@@ -630,6 +654,7 @@ class PVDiagram(PVFitsImage):
             colors=color,
             linewidths=linewidth,
             linestyles=linestyle,
+            **kwargs
         )
         return im
 
@@ -669,6 +694,34 @@ class PVDiagram(PVFitsImage):
             extend = "min"
 
         return extend
+
+    def add_Keplerian_curve(self, Mstar=1.0, distance=100., incl=90., vsys=0.0, rotation_sense=1.0, **kwargs):
+
+        # store the original ylim to avoid too large plot region along y axis
+        ylim = self.ax.get_ylim()
+
+        # default color
+        color = kwargs.pop("color", "white")
+        
+        if isinstance(Mstar, float):
+            # calculate the Keplerian velocity at each positional point 
+            vkep = Keplerian_velocity(r=self.posax*distance, Mstar=Mstar, incl=rotation_sense*incl)
+
+            # plot
+            self.ax.plot(self.posax[self.posax>0], -vkep[self.posax>0]+vsys, color=color, **kwargs)
+            self.ax.plot(self.posax[self.posax<0], vkep[self.posax<0]+vsys, color=color, **kwargs)
+
+        else:
+            # calculate the Keplerian velocity for each element of Mstar
+            vkep_l = Keplerian_velocity(r=self.posax*distance, Mstar=Mstar[0], incl=rotation_sense*incl)
+            vkep_u = Keplerian_velocity(r=self.posax*distance, Mstar=Mstar[1], incl=rotation_sense*incl)
+
+            # plot
+            self.ax.fill_between(self.posax[self.posax>0], -vkep_u[self.posax>0]+vsys, -vkep_l[self.posax>0]+vsys, color=color, **kwargs)
+            self.ax.fill_between(self.posax[self.posax<0], vkep_l[self.posax<0]+vsys, vkep_u[self.posax<0]+vsys, color=color, **kwargs)
+
+        # set original ylim
+        self.ax.set_ylim(ylim)
 
     def add_colorbar(
         self,
