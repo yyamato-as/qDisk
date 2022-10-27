@@ -118,6 +118,9 @@ def imfit_wrapper(
         fig, axes = plt.subplots(1, 3, sharex=True, sharey=True, figsize=(9,3), constrained_layout=True)
 
         # data
+        if not imagename.endswith(".fits"):
+            casatasks.exportfits(imagename=imagename, fitsimage=imagename+".fits", overwrite=True, dropdeg=True)
+            imagename += ".fits"
         ax = axes[0]
         obsmap = Map(imagename, ax=ax, xlim=plot_kw.pop("xlim", None), ylim=plot_kw.pop("ylim", None))
         obsmap.plot_colormap(**plot_kw)

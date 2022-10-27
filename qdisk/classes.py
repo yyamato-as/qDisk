@@ -1,4 +1,3 @@
-from ast import Assert
 import astropy.io.fits as fits
 from astropy.coordinates import SkyCoord
 from scipy.interpolate import interp2d, griddata
@@ -351,7 +350,7 @@ class FitsImage:
             v = self._get_axis(n=n)
             vunit = self._get_axis_unit_in_header(n=n)
             if not "k" in vunit:  # the case for in m/s
-                v *= 1e3  # in km/s
+                v *= 1e-3  # in km/s
             nu = (1 - v / ckms) * self.nu0
         return nu, v
 
@@ -1191,7 +1190,7 @@ class FitsImage:
                 cmask = np.zeros(data.shape)
                 for extent in vel_extent:
                     firstchannel, lastchannel = [
-                        np.argmin(np.abs(self.v - v * 1e3)) for v in extent # note velax in m/s, vel_extent in km/s
+                        np.argmin(np.abs(self.v - v)) for v in extent 
                     ]
                     cmask += bm.get_channel_mask(
                         data=data, firstchannel=firstchannel, lastchannel=lastchannel
@@ -1199,7 +1198,7 @@ class FitsImage:
                 cmask = np.where(cmask != 0.0, 1.0, 0.0)
             else:
                 firstchannel, lastchannel = [
-                    np.argmin(np.abs(self.v - v * 1e3)) for v in vel_extent # note velax in m/s, vel_extent in km/s
+                    np.argmin(np.abs(self.v - v)) for v in vel_extent 
                 ]
                 cmask = bm.get_channel_mask(
                     data=data, firstchannel=firstchannel, lastchannel=lastchannel
@@ -1218,9 +1217,11 @@ class FitsImage:
         print("Calculating moment {}...".format(moment))
         if nchunks is not None:
             print("Going to compute with {} chunks...".format(nchunks))
-            M = process_chunked_array(bettermoments_collapse_wrapper, data, moment=moment, velax=self.v, rms=rms, nchunks=nchunks, axis=0)
+            # note that bettermoment uses velocity unit of m/s
+            M = process_chunked_array(bettermoments_collapse_wrapper, data, moment=moment, velax=self.v*1e3, rms=rms, nchunks=nchunks, axis=0)
         else:
-            M = bettermoments_collapse_wrapper(velax=self.v, data=data, rms=rms)
+            # note that bettermoment uses velocity unit of m/s
+            M = bettermoments_collapse_wrapper(velax=self.v*1e3, data=data, rms=rms)
         if save:
             bm.save_to_FITS(moments=M, method=moment_method[moment], path=self.fitsname, outname=savefilename)
             saved_to = savefilename.replace(".fits", "_*.fits") if savefilename is not None else self.fitsname.replace(".fits", "_*.fits")
