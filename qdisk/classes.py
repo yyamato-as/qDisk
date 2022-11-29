@@ -29,6 +29,39 @@ axes_attr = {
 ia = casatools.image()
 
 
+class BoundingBox:
+
+    def __init__(self, x, y, array, pad=0.0, collapse_to_2D=False):
+
+        self.x_grid, self.y_grid = np.meshgrid(x, y)
+        array = np.sum(array, axis=0)[None, :, :] if collapse_to_2D else array
+        self.bbox = np.empty_like(array)
+        nchan = array.shape[0]
+        self.xmin = np.empty(nchan)
+        self.xmax = np.empty(nchan)
+        self.ymin = np.empty(nchan)
+        self.ymax = np.empty(nchan)
+        self.xsize = np.empty(nchan)
+        self.ysize = np.empty(nchan)
+
+        for i, a in enumerate(array):
+            self.xmin[i] = np.nanmin(self.x_grid[a != 0.0]) - pad
+            self.xmax[i] = np.nanmax(self.x_grid[a != 0.0]) + pad
+            self.ymin[i] = np.nanmin(self.y_grid[a != 0.0]) - pad
+            self.ymax[i] = np.nanmax(self.y_grid[a != 0.0]) + pad
+            self.bbox[i, :, :] =  (self.x_grid >= self.xmin[i]) * (self.x_grid <= self.xmax[i]) * (self.y_grid >= self.ymin[i]) * (self.y_grid <= self.xmax[i])
+            self.xsize[i] = self.xmax[i] - self.xmin[i]
+            self.ysize[i] = self.ymax[i] - self.ymin[i]
+        
+        self.xmin = np.squeeze(self.xmin)
+        self.xmax = np.squeeze(self.xmax)
+        self.ymin = np.squeeze(self.ymin)
+        self.ymax = np.squeeze(self.ymax)
+        self.bbox = np.squeeze(self.bbox)
+        self.xsize = np.squeeze(self.xsize)
+        self.ysize = np.squeeze(self.ysize)        
+
+
 class CasaImage:
     def __init__(self, imagename):
 
@@ -660,15 +693,8 @@ class FitsImage:
         return self.mask
 
     def get_mask_bounding_box(self, pad=0.0, collapse_to_2D=False):
-        x_grid, y_grid = np.meshgrid(self.x, self.y)
-        mask = np.sum(self.mask, axis=0, dtype=bool)[None, :, :] if collapse_to_2D else self.mask
-        self.bounding_box = np.empty_like(mask)
-        for i, m in enumerate(mask):
-            self.bounding_box[i, :, :] = (x_grid >= np.nanmin(x_grid[m]) - pad) * (x_grid <= np.nanmax(x_grid[m]) + pad) * (y_grid >= np.nanmin(y_grid[m]) - pad) * (y_grid <= np.nanmax(y_grid[m]) + pad)
-        
-        self.bounding_box = np.squeeze(self.bounding_box)
-
-        return self.bounding_box
+        self.mask_bbox = BoundingBox(self.x, self.y, self.mask, pad=pad, collapse_to_2D=collapse_to_2D)
+        return self.mask_bbox
 
     def save_mask(self, maskname=None, overwrite=True, import_casa=False):
         if self.ndim > self.mask.ndim:  # data dimension is 3D, whereas mask is 2D
