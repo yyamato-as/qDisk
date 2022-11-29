@@ -659,6 +659,17 @@ class FitsImage:
 
         return self.mask
 
+    def get_mask_bounding_box(self, pad=0.0, collapse_to_2D=False):
+        x_grid, y_grid = np.meshgrid(self.x, self.y)
+        mask = np.sum(self.mask, axis=0, dtype=bool)[None, :, :] if collapse_to_2D else self.mask
+        self.bounding_box = np.empty_like(mask)
+        for i, m in enumerate(mask):
+            self.bounding_box[i, :, :] = (x_grid >= np.nanmin(x_grid[m]) - pad) * (x_grid <= np.nanmax(x_grid[m]) + pad) * (y_grid >= np.nanmin(y_grid[m]) - pad) * (y_grid <= np.nanmax(y_grid[m]) + pad)
+        
+        self.bounding_box = np.squeeze(self.bounding_box)
+
+        return self.bounding_box
+
     def save_mask(self, maskname=None, overwrite=True, import_casa=False):
         if self.ndim > self.mask.ndim:  # data dimension is 3D, whereas mask is 2D
             self.mask = np.expand_dims(self.mask, axis=0)
