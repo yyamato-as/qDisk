@@ -49,7 +49,7 @@ class BoundingBox:
             self.xmax[i] = np.nanmax(self.x_grid[a != 0.0]) + pad
             self.ymin[i] = np.nanmin(self.y_grid[a != 0.0]) - pad
             self.ymax[i] = np.nanmax(self.y_grid[a != 0.0]) + pad
-            self.bbox[i, :, :] =  (self.x_grid >= self.xmin[i]) * (self.x_grid <= self.xmax[i]) * (self.y_grid >= self.ymin[i]) * (self.y_grid <= self.xmax[i])
+            self.bbox[i, :, :] =  (self.x_grid >= self.xmin[i]) * (self.x_grid <= self.xmax[i]) * (self.y_grid >= self.ymin[i]) * (self.y_grid <= self.ymax[i])
             self.xsize[i] = self.xmax[i] - self.xmin[i]
             self.ysize[i] = self.ymax[i] - self.ymin[i]
         
