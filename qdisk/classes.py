@@ -1259,7 +1259,7 @@ class FitsImage:
             M = process_chunked_array(bettermoments_collapse_wrapper, data, moment=moment, velax=velax, rms=rms, nchunks=nchunks, axis=0)
         else:
             # note that bettermoment uses velocity unit of m/s
-            M = bettermoments_collapse_wrapper(velax=velax, data=data, rms=rms)
+            M = bettermoments_collapse_wrapper(data=data, moment=moment, velax=velax, rms=rms)
         if save:
             bm.save_to_FITS(moments=M, method=moment_method[moment], path=self.fitsname, outname=savefilename)
             saved_to = savefilename.replace(".fits", "_*.fits") if savefilename is not None else self.fitsname.replace(".fits", "_*.fits")
