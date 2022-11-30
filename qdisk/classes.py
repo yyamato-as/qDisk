@@ -1197,7 +1197,10 @@ class FitsImage:
         
         rms = self.rms.copy() if rms is None else rms
         data = self.data.copy()
-        velax = np.sort(self.v.copy())*1e3 # velocity axis for bettermoments in m/s in ascending order
+        velax = self.v.copy()*1e3 # velocity axis for bettermoments in m/s
+        if np.all(np.diff(velax) < 0):
+            data = data[::-1, :, :]
+            velax = velax[::-1]
 
         # user mask
         mask = np.ones(data.shape) if mask is None else mask
