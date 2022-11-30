@@ -1197,6 +1197,7 @@ class FitsImage:
         
         rms = self.rms.copy() if rms is None else rms
         data = self.data.copy()
+        velax = np.sort(self.v.copy())*1e3 # velocity axis for bettermoments in m/s in ascending order
 
         # user mask
         mask = np.ones(data.shape) if mask is None else mask
@@ -1227,7 +1228,7 @@ class FitsImage:
                 cmask = np.zeros(data.shape)
                 for extent in vel_extent:
                     firstchannel, lastchannel = [
-                        np.argmin(np.abs(self.v - v)) for v in extent 
+                        np.argmin(np.abs(velax - v*1e3)) for v in extent 
                     ]
                     cmask += bm.get_channel_mask(
                         data=data, firstchannel=firstchannel, lastchannel=lastchannel
@@ -1235,7 +1236,7 @@ class FitsImage:
                 cmask = np.where(cmask != 0.0, 1.0, 0.0)
             else:
                 firstchannel, lastchannel = [
-                    np.argmin(np.abs(self.v - v)) for v in vel_extent 
+                    np.argmin(np.abs(velax - v*1e3)) for v in vel_extent 
                 ]
                 cmask = bm.get_channel_mask(
                     data=data, firstchannel=firstchannel, lastchannel=lastchannel
@@ -1255,10 +1256,10 @@ class FitsImage:
         if nchunks is not None:
             print("Going to compute with {} chunks...".format(nchunks))
             # note that bettermoment uses velocity unit of m/s
-            M = process_chunked_array(bettermoments_collapse_wrapper, data, moment=moment, velax=self.v*1e3, rms=rms, nchunks=nchunks, axis=0)
+            M = process_chunked_array(bettermoments_collapse_wrapper, data, moment=moment, velax=velax, rms=rms, nchunks=nchunks, axis=0)
         else:
             # note that bettermoment uses velocity unit of m/s
-            M = bettermoments_collapse_wrapper(velax=self.v*1e3, data=data, rms=rms)
+            M = bettermoments_collapse_wrapper(velax=velax, data=data, rms=rms)
         if save:
             bm.save_to_FITS(moments=M, method=moment_method[moment], path=self.fitsname, outname=savefilename)
             saved_to = savefilename.replace(".fits", "_*.fits") if savefilename is not None else self.fitsname.replace(".fits", "_*.fits")
