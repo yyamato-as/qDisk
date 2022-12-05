@@ -326,16 +326,16 @@ class Map(FitsImage):
         self.ax.add_artist(beam)
 
     def add_scalebar(
-        self, scale=50, text=None, width=0.0, loc="lower right", color="white"
+        self, scale=50, text=None, width=0.0, loc="lower right", color="white", **kwargs
     ):
 
         scalebar = self._scalebar_with_label(
-            scale=scale, text=text, width=width, loc=loc, color=color
+            scale=scale, text=text, width=width, loc=loc, color=color, **kwargs
         )
         self.ax.add_artist(scalebar)
 
     def _scalebar_with_label(
-        self, scale, text, width=0.0, loc="lower right", color="white"
+        self, scale, text, width=0.0, loc="lower right", color="white", **kwargs
     ):
         from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
         import matplotlib.font_manager as fm
@@ -352,6 +352,7 @@ class Map(FitsImage):
             color=color,
             size_vertical=width,
             fontproperties=fm.FontProperties(size=9),
+            **kwargs
         )
 
         return scalebar
