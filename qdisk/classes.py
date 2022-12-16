@@ -359,7 +359,7 @@ class FitsImage:
         rpix = self.header["crpix{:d}".format(n)]
         rval = self.header["crval{:d}".format(n)]
 
-        axis = delta * (np.arange(npix) - rpix + 0.5) + rval
+        axis = delta * (np.arange(npix) - rpix + 1.0) + rval
 
         return axis
 
@@ -415,6 +415,8 @@ class FitsImage:
 
         # directional axis
         self.x, self.y = self._get_directional_axis(relative=rel_dir_ax)
+        self.x -= 0.5*self.dpix
+        self.y -= 0.5*self.dpix
 
         # spectral axis
         self.nu0 = self._get_restfreq()
