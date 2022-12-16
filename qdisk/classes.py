@@ -359,7 +359,7 @@ class FitsImage:
         rpix = self.header["crpix{:d}".format(n)]
         rval = self.header["crval{:d}".format(n)]
 
-        axis = delta * (np.arange(npix) - rpix + 1) + rval
+        axis = delta * (np.arange(npix) - rpix + 0.5) + rval
 
         return axis
 
@@ -1253,6 +1253,9 @@ class FitsImage:
 
         # masked data
         data *= mask
+        # if np.all(np.diff(velax) < 0):
+        #     data = data[::-1, :, :]
+        #     velax = velax[::-1]
 
         # moment calc by bettermoments; moment 1 may take time
         print("Calculating moment {}...".format(moment))
