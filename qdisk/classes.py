@@ -1264,13 +1264,19 @@ class FitsImage:
         if nchunks is not None:
             print("Going to compute with {} chunks...".format(nchunks))
             # note that bettermoment uses velocity unit of m/s
-            M = process_chunked_array(bettermoments_collapse_wrapper, data, moment=moment, velax=velax, rms=rms, nchunks=nchunks, axis=0)
+            M = process_chunked_array(bettermoments_collapse_wrapper, data, moment=moment, velax=velax*1e-3, rms=rms, nchunks=nchunks, axis=0)
         else:
             # note that bettermoment uses velocity unit of m/s
-            M = bettermoments_collapse_wrapper(data=data, moment=moment, velax=velax, rms=rms)
+            M = bettermoments_collapse_wrapper(data=data, moment=moment, velax=velax*1e-3, rms=rms)
         if save:
             bm.save_to_FITS(moments=M, method=moment_method[moment], path=self.fitsname, outname=savefilename)
             saved_to = savefilename.replace(".fits", "_*.fits") if savefilename is not None else self.fitsname.replace(".fits", "_*.fits")
+            outputs = bm.collapse_method_products(method=moment_method[moment]).split(',')
+            for ext in outputs:
+                filename = saved_to.replace("*", ext)
+                bunit = fits.getheader(filename)["BUNIT"]
+                if "m/s" in bunit:
+                    fits.setval(filename=filename, keyword="BUNIT", value=bunit.replace("m/s", "km/s"))
             print("Saved into {}.".format(saved_to))
         
         return
