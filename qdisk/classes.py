@@ -1271,7 +1271,7 @@ class FitsImage:
         if save:
             bm.save_to_FITS(moments=M, method=moment_method[moment], path=self.fitsname, outname=savefilename)
             saved_to = savefilename.replace(".fits", "_*.fits") if savefilename is not None else self.fitsname.replace(".fits", "_*.fits")
-            outputs = bm.collapse_method_products(method=moment_method[moment]).split(',')
+            outputs = bm.collapse_method_products(method=moment_method[moment]).split(', ')
             for ext in outputs:
                 filename = saved_to.replace("*", ext)
                 bunit = fits.getheader(filename)["BUNIT"]
