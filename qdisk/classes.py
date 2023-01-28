@@ -750,7 +750,7 @@ class FitsImage:
     @staticmethod
     def estimate_rms_each_chan(data, mask):
 
-        rms = np.array(np.nanstd(d[m]) for d, m in zip(data, mask))
+        rms = np.array([np.nanstd(d[m]) for d, m in zip(data, mask)])
 
         return rms
 
@@ -1271,6 +1271,7 @@ class FitsImage:
         if save:
             bm.save_to_FITS(moments=M, method=moment_method[moment], path=self.fitsname, outname=savefilename)
             saved_to = savefilename.replace(".fits", "_*.fits") if savefilename is not None else self.fitsname.replace(".fits", "_*.fits")
+            # use velocity unit of km/s instead of m/s which is the default of bettermoments; to be compatible with several CASA tasks
             outputs = bm.collapse_method_products(method=moment_method[moment]).split(', ')
             for ext in outputs:
                 filename = saved_to.replace("*", ext)
