@@ -322,6 +322,7 @@ class FitsImage:
         ylim=None,
         vlim=None,
         downsample=False,
+        skipdata=False
     ):
 
         self.fitsname = fitsname
@@ -333,25 +334,27 @@ class FitsImage:
         # self.ndim = self.header["NAXIS"]
         # self.data_unit = self.header["BUNIT"]
 
-        # data
-        self.data = fits.getdata(fitsname)
-        if squeeze:
-            self.data = np.squeeze(self.data)
-
+        # axis etc.
         self.rel_dir_ax = rel_dir_ax
 
         self._get_FITS_properties(rel_dir_ax=self.rel_dir_ax)
 
-        self.xlim = xlim
-        self.ylim = ylim
-        self.vlim = vlim
-        self._cutout(xlim=xlim, ylim=ylim, vlim=vlim)
+        if not skipdata:
+            # data
+            self.data = fits.getdata(fitsname)
+            if squeeze:
+                self.data = np.squeeze(self.data)
 
-        self.downsample = downsample
-        if self.downsample:
-            if not isinstance(self.downsample, tuple):
-                self.downsample = (self.downsample, 1)
-            self.downsample_cube(*self.downsample)
+            self.xlim = xlim
+            self.ylim = ylim
+            self.vlim = vlim
+            self._cutout(xlim=xlim, ylim=ylim, vlim=vlim)
+
+            self.downsample = downsample
+            if self.downsample:
+                if not isinstance(self.downsample, tuple):
+                    self.downsample = (self.downsample, 1)
+                self.downsample_cube(*self.downsample)
 
     def _get_axis(self, n):
         npix = self.header["naxis{:d}".format(n)]
