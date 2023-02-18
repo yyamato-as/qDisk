@@ -423,8 +423,10 @@ class FitsImage:
 
         # spectral axis
         self.nu0 = self._get_restfreq()
-        if self.ndim > 2:
+        try:
             self.nu, self.v = self._get_spectral_axis()
+        except:
+            pass
 
         # beam
         self._get_beam_info()
