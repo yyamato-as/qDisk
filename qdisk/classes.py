@@ -321,6 +321,7 @@ class FitsImage:
         xlim=None,
         ylim=None,
         vlim=None,
+        nu0=None,
         downsample=False,
         skipdata=False
     ):
@@ -337,7 +338,7 @@ class FitsImage:
         # axis etc.
         self.rel_dir_ax = rel_dir_ax
 
-        self._get_FITS_properties(rel_dir_ax=self.rel_dir_ax)
+        self._get_FITS_properties(rel_dir_ax=self.rel_dir_ax, nu0=nu0)
 
         if not skipdata:
             # data
@@ -411,7 +412,7 @@ class FitsImage:
                     print("Warning: no rest frequency is found in header.")
                 return np.nan
 
-    def _get_FITS_properties(self, rel_dir_ax=True):
+    def _get_FITS_properties(self, rel_dir_ax=True, nu0=None):
 
         # data unit
         self.data_unit = self.header["bunit"]
@@ -422,7 +423,7 @@ class FitsImage:
         self.y -= 0.5*self.dpix
 
         # spectral axis
-        self.nu0 = self._get_restfreq()
+        self.nu0 = self._get_restfreq() if nu0 is None else nu0
         try:
             self.nu, self.v = self._get_spectral_axis()
         except:
