@@ -1205,9 +1205,9 @@ class FitsImage:
         rms = self.rms.copy() if rms is None else rms
         data = self.data.copy()
         velax = self.v.copy()*1e3 # velocity axis for bettermoments in m/s
-        if np.all(np.diff(velax) < 0):
-            data = data[::-1, :, :]
-            velax = velax[::-1]
+        # if np.all(np.diff(velax) < 0):
+        #     data = data[::-1, :, :]
+        #     velax = velax[::-1]
 
         # user mask
         mask = np.ones(data.shape) if mask is None else mask
@@ -1240,6 +1240,10 @@ class FitsImage:
                     firstchannel, lastchannel = [
                         np.argmin(np.abs(velax - v*1e3)) for v in extent 
                     ]
+                    if firstchannel > lastchannel:
+                        tmp = lastchannel
+                        lastchannel = firstchannel
+                        firstchannel = tmp
                     cmask += bm.get_channel_mask(
                         data=data, firstchannel=firstchannel, lastchannel=lastchannel
                     )
@@ -1248,6 +1252,10 @@ class FitsImage:
                 firstchannel, lastchannel = [
                     np.argmin(np.abs(velax - v*1e3)) for v in vel_extent 
                 ]
+                if firstchannel > lastchannel:
+                    tmp = lastchannel
+                    lastchannel = firstchannel
+                    firstchannel = tmp
                 cmask = bm.get_channel_mask(
                     data=data, firstchannel=firstchannel, lastchannel=lastchannel
                 )
@@ -1281,11 +1289,11 @@ class FitsImage:
             for ext in outputs:
                 filename = saved_to.replace("*", ext)
                 bunit = fits.getheader(filename)["BUNIT"]
-                if "m/s" in bunit:
+                if " m/s" in bunit:
                     fits.setval(filename=filename, keyword="BUNIT", value=bunit.replace("m/s", "km/s"))
             print("Saved into {}.".format(saved_to))
         
-        return
+        return M
 
     def radial_profile(
         self,
