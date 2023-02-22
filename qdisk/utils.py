@@ -361,7 +361,7 @@ def is_within(value, range):
 def bettermoments_collapse_wrapper(data, moment="0", velax=None, rms=None):
 
     collapse = getattr(bm, f"collapse_{moment_method[moment]}")
-    if np.all(np.diff(velax)) < 0:
+    if np.all(np.diff(velax) < 0):
         data = data[::-1, :, :]
         velax = velax[::-1]
     M = collapse(velax=velax, data=data, rms=rms)
