@@ -1285,7 +1285,7 @@ class FitsImage:
         
         # workaround to force the unmasked region to be nan
         for m in moments:
-            m[~mask] = np.nan
+            m[mask == 0.0] = np.nan
 
         if save:
             bm.save_to_FITS(moments=moments, method=moment_method[moment], path=self.fitsname, outname=savefilename)
