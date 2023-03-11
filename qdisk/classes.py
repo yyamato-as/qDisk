@@ -1205,7 +1205,7 @@ class FitsImage:
         
         rms = self.rms.copy() if rms is None else rms
         data = self.data.copy()
-        velax = self.v.copy()*1e3 # velocity axis for bettermoments in m/s
+        velax = self.v.copy() # velocity axis for bettermoments in m/s
         # if np.all(np.diff(velax) < 0):
         #     data = data[::-1, :, :]
         #     velax = velax[::-1]
@@ -1239,7 +1239,7 @@ class FitsImage:
                 cmask = np.zeros(data.shape)
                 for extent in vel_extent:
                     firstchannel, lastchannel = [
-                        np.argmin(np.abs(velax - v*1e3)) for v in extent 
+                        np.argmin(np.abs(velax - v)) for v in extent 
                     ]
                     if firstchannel > lastchannel:
                         tmp = lastchannel
@@ -1251,7 +1251,7 @@ class FitsImage:
                 cmask = np.where(cmask != 0.0, 1.0, 0.0)
             else:
                 firstchannel, lastchannel = [
-                    np.argmin(np.abs(velax - v*1e3)) for v in vel_extent 
+                    np.argmin(np.abs(velax - v)) for v in vel_extent 
                 ]
                 if firstchannel > lastchannel:
                     tmp = lastchannel
@@ -1278,10 +1278,10 @@ class FitsImage:
         if nchunks is not None:
             print("Going to compute with {} chunks...".format(nchunks))
             # note that bettermoment uses velocity unit of m/s
-            moments = process_chunked_array(bettermoments_collapse_wrapper, data, moment=moment, velax=velax*1e-3, rms=rms, nchunks=nchunks, axis=0)
+            moments = process_chunked_array(bettermoments_collapse_wrapper, data, moment=moment, velax=velax, rms=rms, nchunks=nchunks, axis=0)
         else:
             # note that bettermoment uses velocity unit of m/s
-            moments = bettermoments_collapse_wrapper(data=data, moment=moment, velax=velax*1e-3, rms=rms)
+            moments = bettermoments_collapse_wrapper(data=data, moment=moment, velax=velax, rms=rms)
         
         # workaround to force the unmasked region to be nan
         for m in moments:

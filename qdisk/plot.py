@@ -306,7 +306,7 @@ class Map(FitsImage):
 
     ### FANCY ADDENDA STUFF ###
 
-    def add_beam(self, loc="lower left", color="white", fill=True):
+    def add_beam(self, loc="lower left", color="white", fill=True, hatch="///////////"):
         from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
 
         width = self.bmaj
@@ -322,7 +322,7 @@ class Map(FitsImage):
             borderpad=0.5,
             frameon=False,
         )
-        beam.ellipse.set(color=color, fill=fill, hatch="///////////")
+        beam.ellipse.set(color=color, fill=fill, hatch=hatch)
         self.ax.add_artist(beam)
 
     def add_scalebar(
