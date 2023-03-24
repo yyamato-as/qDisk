@@ -408,8 +408,7 @@ class FitsImage:
             try:
                 return self.header["restfrq"]
             except KeyError:
-                if self.ndim > 2:
-                    print("Warning: no rest frequency is found in header.")
+                print("Warning: no rest frequency is found in header.")
                 return np.nan
 
     def _get_FITS_properties(self, rel_dir_ax=True, nu0=None):
