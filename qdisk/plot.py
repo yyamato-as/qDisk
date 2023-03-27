@@ -1316,7 +1316,7 @@ class ChannelMap(FitsImage):
 
             ax.annotate(
                 text="${:.2f}$ km s$^{{-1}}$".format(v),
-                xy=(0.95, 0.97),
+                xy=(0.97, 0.95),
                 ha="right",
                 va="top",
                 xycoords="axes fraction",
