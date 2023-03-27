@@ -1220,16 +1220,35 @@ class ChannelMap(FitsImage):
         self._data_scaling(factor=data_scaling_factor)
 
         # setup figure instance
-        self.nrows, self.ncols = self._get_nrows_ncols()
-        self.fig = plt.figure(figsize=self._get_figsize())
+        self.nrows, self.ncols = self.get_nrows_ncols(npanels=self.v.size, figsize=(2.0, 2.0), max_figsize=(12, None))
+        self.fig = plt.figure(figsize=(self.ncols*2.0, self.nrows*2.0), layout="constrained")
 
-    def _get_nrows_ncols(self):
-        ncols = np.ceil(self.nchan**0.5).astype(int)
-        nrows = np.ceil(self.nchan / ncols).astype(int)
-        return nrows, ncols
+    # def _get_nrows_ncols(self):
+    #     ncols = np.ceil(self.nchan**0.5).astype(int)
+    #     nrows = np.ceil(self.nchan / ncols).astype(int)
+    #     return nrows, ncols
+    
+    @staticmethod
+    def get_ncols_nrows(npanels, figsize, max_figsize):
+        nrows = int(npanels**0.5)
+        ncols = int(npanels / nrows * 0.999) + 1
 
-    def _get_figsize(self):
-        return (self.ncols * 3, self.nrows * 3)
+        _width, _height = figsize
+        width = ncols * _width
+        height = nrows * _height
+
+        width_max, height_max = max_figsize
+
+        if (width_max is not None) and width > width_max:
+            ncols = int(width_max / _width)
+            nrows = int(npanels / ncols * 0.999) + 1
+        if (height_max is not None) and (height > height_max):
+            nrows = int(height_max / _height)
+            ncols = int(npanels / nrows * 0.999) + 1
+        return ncols, nrows
+
+    # def _get_figsize(self):
+    #     return (self.ncols * 3, self.nrows * 3)
 
     def set_imagegrid(self, pad=0.1, cbar_mode="bottom right", cbar_label=None):
         self.colorbar = cbar_mode is not None
@@ -1296,7 +1315,7 @@ class ChannelMap(FitsImage):
             im = plot(ax, data, cmap=cmap, norm=self.norm)
 
             ax.annotate(
-                text="{:.2f} km/s".format(v),
+                text="${:.2f}$ km s$^{-1}$".format(v),
                 xy=(0.95, 0.95),
                 ha="right",
                 va="top",
