@@ -1316,11 +1316,12 @@ class ChannelMap(FitsImage):
 
             ax.annotate(
                 text="${:.2f}$ km s$^{{-1}}$".format(v),
-                xy=(0.95, 0.95),
+                xy=(0.95, 0.97),
                 ha="right",
                 va="top",
                 xycoords="axes fraction",
                 color="black",
+                fontsize=8,
                 path_effects=[pe.Stroke(linewidth=3, foreground="white"), pe.Normal()],
             )
 
