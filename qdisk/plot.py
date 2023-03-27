@@ -1229,7 +1229,7 @@ class ChannelMap(FitsImage):
     #     return nrows, ncols
     
     @staticmethod
-    def get_ncols_nrows(npanels, figsize, max_figsize):
+    def get_nrows_ncols(npanels, figsize, max_figsize):
         nrows = int(npanels**0.5)
         ncols = int(npanels / nrows * 0.999) + 1
 
@@ -1245,7 +1245,7 @@ class ChannelMap(FitsImage):
         if (height_max is not None) and (height > height_max):
             nrows = int(height_max / _height)
             ncols = int(npanels / nrows * 0.999) + 1
-        return ncols, nrows
+        return nrows, ncols
 
     # def _get_figsize(self):
     #     return (self.ncols * 3, self.nrows * 3)
