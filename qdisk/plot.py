@@ -1269,8 +1269,6 @@ class ChannelMap(FitsImage):
         ### Here is workaround for that, removing axes on which no data are drawn.
         for i in range(self.nchan, len(self.imgrid)):
             self.imgrid[i].set_axis_off()
-        
-        self.imgrid = self.imgrid[::self.nchan-len(self.imgrid)]
 
         if cbar_mode == "bottom right":
             for ax in self.imgrid.cbar_axes[: self.nrows - 1]:
