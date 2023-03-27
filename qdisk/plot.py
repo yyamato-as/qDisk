@@ -35,7 +35,7 @@ class Map(FitsImage):
         ylim=None,
         downsample=False,
         set_aspect=True,
-        invert_xaxis=True
+        invert_xaxis=True,
     ):
         if isinstance(fitsname_or_data, str):
             super().__init__(
@@ -49,13 +49,12 @@ class Map(FitsImage):
 
         else:
             self.data = fitsname_or_data
-            
+
             if x is None or y is None:
                 raise ValueError("Provide both x and y axes.")
 
             self.x = x
             self.y = y
-
 
         if self.ndim != 2:
             raise ValueError("Image is not in 2D.")
@@ -93,12 +92,14 @@ class Map(FitsImage):
         if not np.isnan(self.restfreq):
             nu = self.restfreq
         elif nu is None:
-            raise ValueError("Rest frequency not found. Please provide it via *nu* argument.")
+            raise ValueError(
+                "Rest frequency not found. Please provide it via *nu* argument."
+            )
 
-        data = self.data / self.data_scaling_factor # restore original unit
+        data = self.data / self.data_scaling_factor  # restore original unit
         if "mJy" in self.data_unit:
-            data *= 1e-3 # in Jy /beam
-        
+            data *= 1e-3  # in Jy /beam
+
         if unit == "K":
             if RJ_approx:
                 self.data = jypb_to_K_RJ(data, nu, self.beam[:2])
@@ -250,7 +251,15 @@ class Map(FitsImage):
         )
 
     def _contour(
-        self, x, y, data, levels=5, color="black", linewidth=1.0, linestyle="solid", **kwargs
+        self,
+        x,
+        y,
+        data,
+        levels=5,
+        color="black",
+        linewidth=1.0,
+        linestyle="solid",
+        **kwargs
     ):
         im = self.ax.contour(
             x,
@@ -270,7 +279,6 @@ class Map(FitsImage):
 
     # def _set_contourf_extend(self):
 
-
     def _contourf_self(self, levels=10, cmap="viridis", norm=None, **kwargs):
         if isinstance(levels, (list, np.ndarray)):
             vmin = np.nanmin(levels)
@@ -280,7 +288,9 @@ class Map(FitsImage):
         data = self.data.copy()
         # data[data < vmin] = vmin
         # data[data > vmax] = vmax
-        im = self.ax.contourf(self.x, self.y, data, levels=levels, cmap=cmap, norm=norm, **kwargs)
+        im = self.ax.contourf(
+            self.x, self.y, data, levels=levels, cmap=cmap, norm=norm, **kwargs
+        )
         return im
 
     def _pcolorfast_self(self, cmap="viridis", norm=None, **kwargs):
@@ -395,20 +405,24 @@ class Map(FitsImage):
             cax = divider.append_axes(
                 position=position, size=size, axes_class=maxes.Axes, pad=pad
             )
-        
+
         extend = self._set_colorbar_extend()
 
         fig = self.ax.get_figure()
-        orientation = "horizontal" if position == "top" or position == "bottom" else "vertical"
-        self.colorbar = fig.colorbar(self.colormap, cax=cax, orientation=orientation, extend=extend)
+        orientation = (
+            "horizontal" if position == "top" or position == "bottom" else "vertical"
+        )
+        self.colorbar = fig.colorbar(
+            self.colormap, cax=cax, orientation=orientation, extend=extend
+        )
         self.colorbar.set_label(label, rotation=rotation, labelpad=labelpad)
 
         if position == "top":
-            cax.xaxis.set_ticks_position('top')
-            cax.xaxis.set_label_position('top')
+            cax.xaxis.set_ticks_position("top")
+            cax.xaxis.set_label_position("top")
         elif position == "bottom":
-            cax.xaxis.set_ticks_position('bottom')
-            cax.xaxis.set_label_position('bottom')
+            cax.xaxis.set_ticks_position("bottom")
+            cax.xaxis.set_label_position("bottom")
 
         return cax
 
@@ -540,13 +554,253 @@ class Map(FitsImage):
     # def _get_threshold_mask(self, ):
     #     self.estimate_rms()
 
+class MultiPlot:
+    def __init__(self, ncols=None, nrows=None, npanels=None, figsize=(3,3), sharex=True, sharey=True, max_figsize=(15, None)):
+        if (ncols is None) and (nrows is None):
+            assert npanels is not None, "Provide either ncols and nrows or npanels."
+            self.npanels = npanels
+            self.ncols, self.nrows = self.get_ncols_nrows(npanels=npanels, figsize=figsize, max_figsize=max_figsize)
+        else:
+            self.ncols = ncols
+            self.nrows = nrows
+            self.npanels = npanels if npanels is not None else self.ncols * self.nrows
+        
+        self.width_each, self.height_each = figsize
+        self.width = self.ncols * self.width_each
+        self.height = self.nrows * self.height_each
+        self.fig, self.axes = plt.subplots(
+            figsize=(self.width, self.height),
+            nrows=self.nrows,
+            ncols=self.ncols,
+            sharex=sharex,
+            sharey=sharey,
+            constrained_layout=True,
+        )
+        self.axes = self.axes if isinstance(self.axes, np.ndarray) else np.array([self.axes])
+
+        # clear the extra axes
+        for i in range(self.npanel, len(self.axes.flatten())):
+            ax = self.axes.flatten()[i]
+            ax.set_axis_off()
+
+    @staticmethod
+    def get_ncols_nrows(npanels, figsize, max_figsize):
+        nrows = int(npanels**0.5)
+        ncols = int(npanels / nrows * 0.999) + 1
+
+        _width, _height = figsize
+        width = ncols * _width
+        height = nrows * _height
+
+        width_max, height_max = max_figsize
+
+        if (width_max is not None) and width > width_max:
+            ncols = int(width_max / _width)
+            nrows = int(npanels / ncols * 0.999) + 1
+        if (height_max is not None) and (height > height_max):
+            nrows = int(height_max / _height)
+            ncols = int(npanels / nrows * 0.999) + 1
+        return ncols, nrows
+    
+    def get_lower_left_axis_index(self):
+        return int((self.nrows - 1) * self.ncols)
+    
+    def get_lower_left_axis(self):
+        return self.axes.flatten()[self.get_lower_left_axis_index()]
+
+    def set_labels(self, xlabel=None, ylabel=None):
+        ax = self.get_lower_left_axis()
+        ax.set(xlabel=xlabel, ylabel=ylabel)
+
+"""
+class ChannelMap(FitsImage):
+    def __init__(
+        self,
+        fitsname_or_data,
+        x=None,
+        y=None,
+        v=None,
+        data_scaling_factor=1.0,
+        center_coord=None,
+        rel_dir_ax=True,
+        xlim=None,
+        ylim=None,
+        vlim=None,
+        nu0=None,
+        downsample=False,
+        set_aspect=True
+    ):
+        if isinstance(fitsname_or_data, str):
+            super().__init__(
+                fitsname_or_data,
+                rel_dir_ax=rel_dir_ax,
+                xlim=xlim,
+                ylim=ylim,
+                vlim=vlim,
+                nu0=nu0,
+                downsample=downsample,
+                skipdata=False,
+            )
+        else:
+            self.data = fitsname_or_data
+
+            if x is None or y is None:
+                raise ValueError("Provide both x and y axes.")
+            if v is None:
+                raise ValueError("Provide velocity axis.")
+
+            self.x = x
+            self.y = y
+            self.v = v
+
+        if self.ndim != 3:
+            raise ValueError("Image is not in 3D.")
+
+        if center_coord is not None:
+            try:
+                self.shift_phasecenter_toward(center_coord)
+            except AttributeError:
+                print("Warning: Phase center shift is not available.")
+                pass
+        
+        self.figure = MultiPlot(npanels=self.v.size, sharex=True, sharey=True, figsize=(2,2))
+
+        self.axes = self.figure.axes.flatten()
+        self.data_scaling_factor = data_scaling_factor
+        self.center_coord = center_coord
+        self.xlim = xlim
+        self.ylim = ylim
+        self.vlim = vlim
+        self.nu0 = nu0
+        self.downsample = downsample
+
+        # set the Map class for each panel
+        self.maps = []
+        for i, ax in enumerate(self.axes):
+            im = Map(
+                fitsname_or_data=self.data[i],
+                x=self.x,
+                y=self.y,
+                ax=ax,
+                data_scaling_factor=self.data_scaling_factor,
+            )
+            if set_aspect:
+                im._set_aspect()
+            self.maps.append(im)
+
+    ### MAP FUNCTION ###
+
+    def plot_colormap(
+        self,
+        method="pcolorfast",
+        cmap="viridis",
+        vmin=None,
+        vmax=None,
+        normalize_each_chan=False,
+        interval=None,
+        stretch=None,
+        **kwargs
+    ):
+        if not normalize_each_chan:
+            vmin = np.min(np.isfinite(self.data))
+            vmax = np.max(np.isfinite(self.data))
+    
+        for map in self.maps:
+            map.plot_colormap(
+                method=method,
+                cmap=cmap,
+                vmin=vmin,
+                vmax=vmax,
+                interval=interval,
+                stretch=stretch,
+                **kwargs
+            )
+
+    def overlay_contour(
+        self,
+        fitsname_or_data="self",
+        x=None,
+        y=None,
+        data_scaling_factor=1.0,
+        levels=5,
+        color="grey",
+        linewidth=1.0,
+        linestyle="solid",
+        **kwargs
+    ):
+        for map in self.maps:
+            map.overlay_contour(
+                fitsname_or_data=fitsname_or_data,
+                x=x,
+                y=y,
+                data_scaling_factor=data_scaling_factor,
+                levels=levels,
+                color=color,
+                linewidth=linewidth,
+                linestyle=linestyle,
+                **kwargs
+            )
+
+    ### FANCY ADDENDA STUFF ###
+
+    def add_beam(self, panel="lower left", loc="lower left", color="white", fill=True, hatch="///////////"):
+        if panel == "lower left":
+            index = self.figure.get_lower_left_axis_index()
+            self.maps[index].add_beam(loc=loc, color=color, fill=fill, hatch=hatch)
+        elif panel == "all":
+            for map in self.maps:
+                map.add_beam(loc=loc, color=color, fill=fill, hatch=hatch)
+
+    def add_scalebar(
+        self, scale=50, text=None, width=0.0, panel="lower left", loc="lower right", color="white", **kwargs
+    ):
+        if panel == "lower left":
+            index = self.figure.get_lower_left_axis_index()
+            self.maps[index].add_scalebar(scale=scale, text=text, width=width, loc=loc, color=color, **kwargs)
+        elif panel == "all":
+            for map in self.maps:
+                map.add_scalebar(scale=scale, text=text, width=width, loc=loc, color=color, **kwargs)
+
+    ### COLORBAR STUFF ###
+
+    def add_colorbar(
+        self,
+        cax=None,
+        position="right",
+        size="5%",
+        pad=0.1,
+        label=None,
+        rotation=270,
+        labelpad=15,
+    ):
+        map = self.maps[-1]
+        map.add_colorbar(cax=cax, position=position, size=size, pad=pad, label=label, rotation=rotation, labelpad=labelpad)
+    
+    ### APPERANCE ###
+
+    def _set_aspect(self):
+        self.ax.set_aspect(1.0 / self.ax.get_data_ratio())
+"""
+
+
 
 class PVDiagram(PVFitsImage):
-
-    def __init__(self, fitsname_or_data, posax=None, velax=None, ax=None, data_scaling_factor=1., xlim=None, vlim=None, downsample=False):
+    def __init__(
+        self,
+        fitsname_or_data,
+        posax=None,
+        velax=None,
+        ax=None,
+        data_scaling_factor=1.0,
+        xlim=None,
+        vlim=None,
+        downsample=False,
+    ):
 
         if isinstance(fitsname_or_data, str):
-            super().__init__(fitsname=fitsname_or_data, xlim=xlim, vlim=vlim, downsample=downsample)
+            super().__init__(
+                fitsname=fitsname_or_data, xlim=xlim, vlim=vlim, downsample=downsample
+            )
         else:
             self.data = fitsname_or_data
             self.posax = posax
@@ -571,12 +825,14 @@ class PVDiagram(PVFitsImage):
         if not np.isnan(self.restfreq):
             nu = self.restfreq
         elif nu is None:
-            raise ValueError("Rest frequency not found. Please provide it via *nu* argument.")
+            raise ValueError(
+                "Rest frequency not found. Please provide it via *nu* argument."
+            )
 
-        data = self.data / self.data_scaling_factor # restore original unit
+        data = self.data / self.data_scaling_factor  # restore original unit
         if "mJy" in self.data_unit:
-            data *= 1e-3 # in Jy /beam
-        
+            data *= 1e-3  # in Jy /beam
+
         if unit == "K":
             if RJ_approx:
                 self.data = jypb_to_K_RJ(data, nu, self.beam[:2])
@@ -645,7 +901,15 @@ class PVDiagram(PVFitsImage):
         )
 
     def _contour(
-        self, x, v, data, levels=5, color="black", linewidth=1.0, linestyle="solid", **kwargs
+        self,
+        x,
+        v,
+        data,
+        levels=5,
+        color="black",
+        linewidth=1.0,
+        linestyle="solid",
+        **kwargs
     ):
         im = self.ax.contour(
             x,
@@ -696,30 +960,66 @@ class PVDiagram(PVFitsImage):
 
         return extend
 
-    def add_Keplerian_curve(self, Mstar=1.0, distance=100., incl=90., vsys=0.0, rotation_sense=1.0, **kwargs):
+    def add_Keplerian_curve(
+        self,
+        Mstar=1.0,
+        distance=100.0,
+        incl=90.0,
+        vsys=0.0,
+        rotation_sense=1.0,
+        **kwargs
+    ):
 
         # store the original ylim to avoid too large plot region along y axis
         ylim = self.ax.get_ylim()
 
         # default color
         color = kwargs.pop("color", "white")
-        
+
         if isinstance(Mstar, float):
-            # calculate the Keplerian velocity at each positional point 
-            vkep = Keplerian_velocity(r=self.posax*distance, Mstar=Mstar, incl=rotation_sense*incl)
+            # calculate the Keplerian velocity at each positional point
+            vkep = Keplerian_velocity(
+                r=self.posax * distance, Mstar=Mstar, incl=rotation_sense * incl
+            )
 
             # plot
-            self.ax.plot(self.posax[self.posax>0], -vkep[self.posax>0]+vsys, color=color, **kwargs)
-            self.ax.plot(self.posax[self.posax<0], vkep[self.posax<0]+vsys, color=color, **kwargs)
+            self.ax.plot(
+                self.posax[self.posax > 0],
+                -vkep[self.posax > 0] + vsys,
+                color=color,
+                **kwargs
+            )
+            self.ax.plot(
+                self.posax[self.posax < 0],
+                vkep[self.posax < 0] + vsys,
+                color=color,
+                **kwargs
+            )
 
         else:
             # calculate the Keplerian velocity for each element of Mstar
-            vkep_l = Keplerian_velocity(r=self.posax*distance, Mstar=Mstar[0], incl=rotation_sense*incl)
-            vkep_u = Keplerian_velocity(r=self.posax*distance, Mstar=Mstar[1], incl=rotation_sense*incl)
+            vkep_l = Keplerian_velocity(
+                r=self.posax * distance, Mstar=Mstar[0], incl=rotation_sense * incl
+            )
+            vkep_u = Keplerian_velocity(
+                r=self.posax * distance, Mstar=Mstar[1], incl=rotation_sense * incl
+            )
 
             # plot
-            self.ax.fill_between(self.posax[self.posax>0], -vkep_u[self.posax>0]+vsys, -vkep_l[self.posax>0]+vsys, color=color, **kwargs)
-            self.ax.fill_between(self.posax[self.posax<0], vkep_l[self.posax<0]+vsys, vkep_u[self.posax<0]+vsys, color=color, **kwargs)
+            self.ax.fill_between(
+                self.posax[self.posax > 0],
+                -vkep_u[self.posax > 0] + vsys,
+                -vkep_l[self.posax > 0] + vsys,
+                color=color,
+                **kwargs
+            )
+            self.ax.fill_between(
+                self.posax[self.posax < 0],
+                vkep_l[self.posax < 0] + vsys,
+                vkep_u[self.posax < 0] + vsys,
+                color=color,
+                **kwargs
+            )
 
         # set original ylim
         self.ax.set_ylim(ylim)
@@ -877,6 +1177,7 @@ class ChannelMap(FitsImage):
         xlim=None,
         ylim=None,
         vlim=None,
+        nu0=None,
         downsample=False,
     ):
 
@@ -888,6 +1189,7 @@ class ChannelMap(FitsImage):
                 xlim=xlim,
                 ylim=ylim,
                 vlim=vlim,
+                nu0=nu0,
                 downsample=downsample,
             )
 
@@ -906,7 +1208,6 @@ class ChannelMap(FitsImage):
 
         if self.ndim < 3:
             raise ValueError("The image is 2D.")
-
 
         self.center_coord = center_coord
         if self.center_coord is not None:
@@ -939,7 +1240,7 @@ class ChannelMap(FitsImage):
             share_all=True,
             axes_pad=pad,
             cbar_mode="edge" if cbar_mode == "bottom right" else cbar_mode,
-            cbar_location="right"
+            cbar_location="right",
         )
         ### ImageGrid should have param of *ngrids*, but specifying this param cause an error (maybe bug?).
         ### Here is workaround for that, removing axes on which no data are drawn.
@@ -947,10 +1248,12 @@ class ChannelMap(FitsImage):
             self.imgrid[i].set_axis_off()
 
         if cbar_mode == "bottom right":
-            for ax in self.imgrid.cbar_axes[:self.nrows-1]:
+            for ax in self.imgrid.cbar_axes[: self.nrows - 1]:
                 ax.set_visible(False)
-            self.imgrid.cbar_axes = [self.imgrid.cbar_axes[self.nrows-1]] # only colorbar at bottom right panel
-        
+            self.imgrid.cbar_axes = [
+                self.imgrid.cbar_axes[self.nrows - 1]
+            ]  # only colorbar at bottom right panel
+
         self.cbar_label = cbar_label if cbar_label is not None else self.data_unit
 
     def _data_scaling(self, factor):
@@ -981,7 +1284,9 @@ class ChannelMap(FitsImage):
     ):
         if stretch is None:
             stretch = LinearStretch()
-        self.norm = self._normalize(vmin=vmin, vmax=vmax, interval=interval, stretch=stretch)
+        self.norm = self._normalize(
+            vmin=vmin, vmax=vmax, interval=interval, stretch=stretch
+        )
 
         for i, v in enumerate(self.v):
             ax = self.imgrid[i]
@@ -1095,7 +1400,7 @@ class ChannelMap(FitsImage):
         ani = animation.ArtistAnimation(fig, ims, interval=100)
 
         return ani
-    
+
     ### ADDENDA
 
     def add_beam(self, mode="1", loc="lower left", color="white", fill=True):
@@ -1124,7 +1429,6 @@ class ChannelMap(FitsImage):
             beam.ellipse.set(color=color, fill=fill, hatch="///////////")
             ax.add_artist(beam)
 
-    
     ### APPEARANCE
 
     def set_title(self, title):
@@ -1239,7 +1543,6 @@ class ChannelMap(FitsImage):
             self.imgrid.axes_llc.minorticks_on()
 
 
-
 # class Spectrum(FitsImage):
 
 
@@ -1249,8 +1552,7 @@ class ChannelMap(FitsImage):
 
 #         else:
 #             self.avgspec = fitsname_or_data
-#             self.x = 
-
+#             self.x =
 
 
 def get_figsize(ncols, nrows, max_size=()):
