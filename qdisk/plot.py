@@ -1315,7 +1315,7 @@ class ChannelMap(FitsImage):
             im = plot(ax, data, cmap=cmap, norm=self.norm)
 
             ax.annotate(
-                text="${:.2f}$ km s$^{-1}$".format(v),
+                text="${:.2f}$ km s$^{{-1}}$".format(v),
                 xy=(0.95, 0.95),
                 ha="right",
                 va="top",
