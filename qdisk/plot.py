@@ -1366,10 +1366,16 @@ class ChannelMap(FitsImage):
             data = image.data * data_scaling_factor
         else:
             data = fitsname_or_data * data_scaling_factor
+            x = self.x
+            y = self.y
+            v = self.v
 
         for i, v_self in enumerate(self.v):
             ax = self.imgrid[i]
-            d = data[np.argmin(abs(v - v_self))]
+            if data.ndim == 3:
+                d = data[np.argmin(abs(v - v_self))]
+            else:
+                d = data
 
             self.contour = self._contour(
                 ax,
