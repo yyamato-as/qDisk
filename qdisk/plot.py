@@ -1373,6 +1373,10 @@ class ChannelMap(FitsImage):
             x = self.x
             y = self.y
             v = self.v
+        
+        if np.all(np.diff(v) < 0):
+            v = v[::-1]
+            data = data[::-1]
 
         for i, v_self in enumerate(self.v):
             ax = self.imgrid[i]
