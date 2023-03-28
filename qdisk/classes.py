@@ -932,7 +932,7 @@ class FitsImage:
                 print("Extracted flux density uncertainty: {:.3e} Jy".format(flux_error))
         else:
             flux = self.dchan * np.sum(np.array(flux_spectrum))
-            flux_error = self.dchan = np.sqrt(np.sum(np.array(flux_spectrum_error)**2))
+            flux_error = self.dchan * np.sqrt(np.sum(np.array(flux_spectrum_error)**2))
             if verbose:
                 print("Extracted integrated flux density: {:.3e} Jy km/s".format(flux))
                 print("Extracted integrated flux density uncertainty: {:.3e} Jy km/s".format(flux_error))
