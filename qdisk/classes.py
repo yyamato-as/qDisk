@@ -429,7 +429,11 @@ class FitsImage:
             pass
 
         # beam
-        self._get_beam_info()
+        try:
+            self._get_beam_info()
+        except KeyError:
+            print("Warning: No beam information found in the header.")
+            pass
 
     def convert_unit(self, unit="K", nu=None, RJ_approx=False):
         ### assume the original data unit is Jy / beam or mJy / beam
