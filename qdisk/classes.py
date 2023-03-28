@@ -894,19 +894,48 @@ class FitsImage:
         except UnboundLocalError:
             return
 
-    def get_flux(self, rms=None, **mask_kwargs):
-        mask = self.get_mask(**mask_kwargs).flatten()
+    def extract_flux(self, rms=None, verbose=True, **mask_kwargs):
+        mask = self.get_mask(**mask_kwargs)
 
-        tointeg = self.data.flatten()[mask]
-        flux = np.sum(tointeg / self.Omega_beam_arcsec2 * self.dpix**2)
-        if rms is not None:
-            flux_error = rms * np.sqrt(
-                2 * tointeg.size * self.dpix**2 / self.Omega_beam_arcsec2
-            )  # / self.Omega_beam_arcsec2 * self.dpix**2
-        elif hasattr(self, rms):
-            flux_error = self.rms * np.sqrt(
-                2 * tointeg.size * self.dpix**2 / self.Omega_beam_arcsec2
-            )
+        if self.ndim <= 2:
+            data = np.expand_dims(self.data, axis=0)
+            mask = np.expand_dims(mask, axis=0)
+        else:
+            data = self.data.copy()
+
+        flux_spectrum = []
+        flux_spectrum_error = []
+        if (rms is None) and (not hasattr(self, rms)):
+            print("Warning: Flux uncertainty will not be calculated due to the lack of rms value. If you want it, provide the rms value or estimate by estimate_rms function.")
+
+        for d, m in zip(data, mask):
+            tointeg = d.flatten()[m.flatten()]
+            flux = np.sum(tointeg / self.Omega_beam_arcsec2 * self.dpix**2)
+            flux_spectrum.append(flux)
+            if rms is not None:
+                flux_error = rms * np.sqrt(
+                    2 * tointeg.size * self.dpix**2 / self.Omega_beam_arcsec2
+                )  # / self.Omega_beam_arcsec2 * self.dpix**2
+            elif hasattr(self, rms):
+                flux_error = self.rms * np.sqrt(
+                    2 * tointeg.size * self.dpix**2 / self.Omega_beam_arcsec2
+                )
+            else:
+                flux_error = 0.0
+            flux_spectrum_error.append(flux_error)
+        
+        if len(flux_spectrum) == 1:
+            flux = flux_spectrum[0]
+            flux_error = flux_spectrum_error[0]
+            if verbose:
+                print("Extracted flux density: {:.3e} Jy".format(flux))
+                print("Extracted flux density uncertainty: {:.3e} Jy".format(flux_error))
+        else:
+            flux = self.dchan * np.sum(np.array(flux_spectrum))
+            flux_error = self.dchan = np.sqrt(np.sum(np.array(flux_spectrum_error)**2))
+            if verbose:
+                print("Extracted integrated flux density: {:.3e} Jy km/s".format(flux))
+                print("Extracted integrated flux density uncertainty: {:.3e} Jy km/s".format(flux_error))
 
         return flux, flux_error
 
