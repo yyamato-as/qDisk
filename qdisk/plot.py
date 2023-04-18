@@ -1209,7 +1209,7 @@ class ChannelMap(FitsImage):
         if self.ndim < 3:
             raise ValueError("The image is 2D.")
 
-        self.center_coord = center_coord if center_coord is not None else self.get_phasecenter_coord()
+        self.center_coord = center_coord
         if self.center_coord is not None:
             try:
                 self.shift_phasecenter_toward(self.center_coord)
@@ -1363,8 +1363,8 @@ class ChannelMap(FitsImage):
                 vlim=self.vlim,
             )
 
-            # if hasattr(self, "center_coord"):
-            image.shift_phasecenter_toward(self.center_coord)
+            if self.center_coord is not None:
+                image.shift_phasecenter_toward(self.center_coord)
             x = image.x
             y = image.y
             v = image.v
