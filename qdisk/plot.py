@@ -1346,6 +1346,7 @@ class ChannelMap(FitsImage):
         color="grey",
         linewidth=1.0,
         linestyle="solid",
+        **kwargs
     ):
 
         if fitsname_or_data == "self":
@@ -1399,6 +1400,7 @@ class ChannelMap(FitsImage):
                 color=color,
                 linewidth=linewidth,
                 linestyle=linestyle,
+                **kwargs
             )
 
     def _pcolorfast(self, ax, data, cmap="viridis", norm=None):
@@ -1412,7 +1414,7 @@ class ChannelMap(FitsImage):
         return norm
 
     def _contour(
-        self, ax, x, y, data, levels=5, color="black", linewidth=1.0, linestyle="solid"
+        self, ax, x, y, data, levels=5, color="black", linewidth=1.0, linestyle="solid", **kwargs
     ):
         im = ax.contour(
             x,
@@ -1422,6 +1424,7 @@ class ChannelMap(FitsImage):
             colors=color,
             linewidths=linewidth,
             linestyles=linestyle,
+            **kwargs
         )
         return im
 
