@@ -1367,7 +1367,10 @@ class ChannelMap(FitsImage):
                 image.shift_phasecenter_toward(self.center_coord)
             x = image.x
             y = image.y
-            v = image.v
+            if hasattr(image, "v"):
+                v = image.v
+            else:
+                v = self.v
             data = image.data * data_scaling_factor
         else:
             data = fitsname_or_data * data_scaling_factor
