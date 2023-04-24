@@ -73,7 +73,7 @@ def imfit_wrapper(
             result["results"]["component{:d}".format(i)]["shape"]["direction"]["m1"]["unit"]
         )
         frame = result["results"]["component{:d}".format(i)]["shape"]["direction"]["refer"].lower()
-        c = SkyCoord(ra=ra, dec=dec, frame=frame)
+        c = SkyCoord(ra=ra, dec=dec, frame="icrs")
         r["peak"] = c.ra.to_string(u.hour) + " " + c.dec.to_string(u.degree, alwayssign=True)
 
         # size
