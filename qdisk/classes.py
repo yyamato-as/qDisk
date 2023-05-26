@@ -815,7 +815,7 @@ class FitsImage:
 
         flux_spectrum = []
         flux_spectrum_error = []
-        if (rms is None) and (not hasattr(self, rms)):
+        if (rms is None) and (not hasattr(self, "rms")):
             print("Warning: Flux uncertainty will not be calculated due to the lack of rms value. If you want it, provide the rms value or estimate by estimate_rms function.")
 
         for d, m in zip(data, mask):
