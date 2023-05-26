@@ -824,11 +824,11 @@ class FitsImage:
             flux_spectrum.append(flux)
             if rms is not None:
                 flux_error = rms * np.sqrt(
-                    2 * tointeg.size * self.dpix**2 / self.Omega_beam_arcsec2
+                    tointeg.size * self.dpix**2 / self.Omega_beam_arcsec2
                 )  # / self.Omega_beam_arcsec2 * self.dpix**2
             elif hasattr(self, "rms"):
                 flux_error = self.rms * np.sqrt(
-                    2 * tointeg.size * self.dpix**2 / self.Omega_beam_arcsec2
+                    tointeg.size * self.dpix**2 / self.Omega_beam_arcsec2
                 )
             else:
                 flux_error = 0.0
