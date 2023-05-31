@@ -927,7 +927,7 @@ class FitsImage:
             return
 
     def extract_flux(self, rms=None, verbose=True, **mask_kwargs):
-        flux_spectrum, flux_spectrum_error = self.extract_integrated_spectrum(rms=rms, **mask_kwargs)
+        _, flux_spectrum, flux_spectrum_error = self.extract_integrated_spectrum(rms=rms, **mask_kwargs)
         
         if len(flux_spectrum) == 1:
             flux = flux_spectrum[0]
