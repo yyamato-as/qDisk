@@ -926,7 +926,24 @@ class FitsImage:
         except UnboundLocalError:
             return
 
-    def extract_flux(self, rms=None, verbose=True, **mask_kwargs):
+    def extract_flux(self, rms=None, verbose=True, velocity_resolution=1.0, **mask_kwargs):
+        """Measure the (velocity-integrated) flux density in a specified region.
+
+        Parameters
+        ----------
+        rms : float, optional
+            RMS noise of the image, by default None. If None, it will be internally calculated over
+            the outside of the mask specified by the mask_kwargs paramaters.
+        verbose : bool, optional
+            Whether the message about the flux denisty will be shown in the terminal, by default True
+        velocity_resolution : float, optional
+            velocity resolution in unit of the channel width which is used to correct for the spectral correlation, by default 1.0. 
+
+        Returns
+        -------
+        tuple of two floats
+            (velocity-integrated) flux density and its uncertainty
+        """
         _, flux_spectrum, flux_spectrum_error = self.extract_integrated_spectrum(rms=rms, **mask_kwargs)
         
         if len(flux_spectrum) == 1:
@@ -937,7 +954,7 @@ class FitsImage:
                 print("Extracted flux density uncertainty: {:.3e} Jy".format(flux_error))
         else:
             flux = self.dchan * np.sum(flux_spectrum)
-            flux_error = self.dchan * np.sqrt(np.sum(flux_spectrum_error**2))
+            flux_error = self.dchan * np.sqrt(np.sum(flux_spectrum_error**2)) * np.sqrt(velocity_resolution)
             if verbose:
                 print("Extracted integrated flux density: {:.3e} Jy km/s".format(flux))
                 print("Extracted integrated flux density uncertainty: {:.3e} Jy km/s".format(flux_error))
@@ -1251,7 +1268,8 @@ class FitsImage:
         mask = np.ones(data.shape) if mask is None else mask
 
         # threshold mask
-        print("Generating threshold mask...")
+        if verbose:
+            print("Generating threshold mask...")
         if threshold is not None:
             tmask = bm.get_threshold_mask(data=data, clip=threshold)
         else:
@@ -1259,10 +1277,12 @@ class FitsImage:
 
         # channel mask
         if channel is None and vel_extent is None:
-            print("Generating channel mask...")
+            if verbose:
+                print("Generating channel mask...")
             cmask = np.ones(data.shape)
         elif channel is not None:
-            print("Generating channel mask based on specified channels...")
+            if verbose:
+                print("Generating channel mask based on specified channels...")
             cmask = np.zeros(data.shape)
             for cr in channel.split(";"):
                 firstchannel, lastchannel = [int(c) for c in cr.split("~")]
@@ -1271,7 +1291,8 @@ class FitsImage:
                 )
             cmask = np.where(cmask != 0.0, 1.0, 0.0)  # manage possible overlaps
         else:
-            print("Generating channel mask based on specified velocity range...")
+            if verbose:
+                print("Generating channel mask based on specified velocity range...")
             if isinstance(vel_extent, list):
                 cmask = np.zeros(data.shape)
                 for extent in vel_extent:
@@ -1299,7 +1320,8 @@ class FitsImage:
                 )
         
         # mask combination
-        print("Combining the masks...")
+        if verbose:
+            print("Combining the masks...")
         mask = bm.get_combined_mask(
             user_mask=mask, threshold_mask=tmask, channel_mask=cmask, combine="and"
         )
@@ -1311,9 +1333,11 @@ class FitsImage:
         #     velax = velax[::-1]
 
         # moment calc by bettermoments; moment 1 may take time
-        print("Calculating moment {}...".format(moment))
+        if verbose:
+            print("Calculating moment {}...".format(moment))
         if nchunks is not None:
-            print("Going to compute with {} chunks...".format(nchunks))
+            if verbose:
+                print("Going to compute with {} chunks...".format(nchunks))
             # note that bettermoment uses velocity unit of m/s
             moments = process_chunked_array(bettermoments_collapse_wrapper, data, moment=moment, velax=velax, rms=rms, nchunks=nchunks, axis=0)
         else:
@@ -1334,7 +1358,8 @@ class FitsImage:
                 bunit = fits.getheader(filename)["BUNIT"]
                 if " m/s" in bunit:
                     fits.setval(filename=filename, keyword="BUNIT", value=bunit.replace("m/s", "km/s"))
-            print("Saved into {}.".format(saved_to))
+            if verbose:
+                print("Saved into {}.".format(saved_to))
         
         return moments
 
