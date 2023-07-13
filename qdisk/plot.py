@@ -1445,7 +1445,7 @@ class ChannelMap(FitsImage):
 
     ### ADDENDA
 
-    def add_beam(self, mode="1", loc="lower left", color="white", fill=True):
+    def add_beam(self, mode="1", loc="lower left", color="white", fill=True, hatch="///////////"):
         from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
 
         width = self.bmaj
@@ -1468,7 +1468,7 @@ class ChannelMap(FitsImage):
                 borderpad=0.5,
                 frameon=False,
             )
-            beam.ellipse.set(color=color, fill=fill, hatch="///////////")
+            beam.ellipse.set(color=color, fill=fill, hatch=hatch)
             ax.add_artist(beam)
 
     ### APPEARANCE
