@@ -316,12 +316,18 @@ class Map(FitsImage):
 
     ### FANCY ADDENDA STUFF ###
 
-    def add_beam(self, loc="lower left", color="white", fill=True, hatch="///////////"):
+    def add_beam(self, beam=None, loc="lower left", color="white", fill=True, hatch="///////////"):
         from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
 
-        width = self.bmaj
-        height = self.bmin
-        angle = 90 - self.bpa  # to make measured from east
+        if beam is not None:
+            bmaj, bmin, pa = beam
+            width = bmaj
+            height = bmin
+            angle = 90 - pa
+        else:
+            width = self.bmaj
+            height = self.bmin
+            angle = 90 - self.bpa  # to make measured from east
         beam = AnchoredEllipse(
             self.ax.transData,
             width=width,
