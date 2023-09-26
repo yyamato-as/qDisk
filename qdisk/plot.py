@@ -67,7 +67,7 @@ class Map(FitsImage):
                 pass
 
         if ax is None:
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots(layout="constrained")
 
         self.ax = ax
         self.data_scaling_factor = data_scaling_factor
