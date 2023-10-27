@@ -13,7 +13,7 @@ matplotlib = "^3.5.2"
 bettermoments = "^1.6.3"
 ipython = "^8.3.0"
 casatasks = "^6.4.4"
-casadata = "*"
+casadata = "2023.0.0"
 casatools = "^6.4.4"
 
 [tool.poetry.dev-dependencies]
