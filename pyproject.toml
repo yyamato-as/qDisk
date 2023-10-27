@@ -14,7 +14,6 @@ bettermoments = "^1.6.3"
 ipython = "^8.3.0"
 casatasks = "^6.4.4"
 casatools = "^6.4.4"
-casadata = "*"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
