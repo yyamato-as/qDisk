@@ -217,23 +217,24 @@ class Map(FitsImage):
         **kwargs
     ):
 
-        if fitsname_or_data == "self":
-            x = self.x
-            y = self.y
-            data = self.data
-        elif isinstance(fitsname_or_data, str):
-            image = FitsImage(
-                fitsname=fitsname_or_data,
-                squeeze=True,
-                rel_dir_ax=True,
-                xlim=self.xlim,
-                ylim=self.ylim,
-                downsample=self.downsample,
-            )
-            image.shift_phasecenter_toward(self.center_coord)
-            x = image.x
-            y = image.y
-            data = image.data * data_scaling_factor
+        if isinstance(fitsname_or_data, str):
+            if fitsname_or_data == "self":
+                x = self.x
+                y = self.y
+                data = self.data
+            else:
+                image = FitsImage(
+                    fitsname=fitsname_or_data,
+                    squeeze=True,
+                    rel_dir_ax=True,
+                    xlim=self.xlim,
+                    ylim=self.ylim,
+                    downsample=self.downsample,
+                )
+                image.shift_phasecenter_toward(self.center_coord)
+                x = image.x
+                y = image.y
+                data = image.data * data_scaling_factor
         else:
             x = self.x if x is None else x
             y = self.y if y is None else y
