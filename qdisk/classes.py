@@ -759,7 +759,7 @@ class FitsImage:
     @staticmethod
     def estimate_rms_each_chan(data, mask):
 
-        rms = np.array([np.nanstd(d[m]) for d, m in zip(data, mask)])
+        rms = np.array([np.nanstd(d[m.astype(bool)]) for d, m in zip(data, mask)])
 
         return rms
 
