@@ -8,7 +8,14 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 from .utils import is_within
 import casatools, casatasks
-from qdisk.utils import remove_casalogfile, jypb_to_K_RJ, jypb_to_K, bettermoments_collapse_wrapper, process_chunked_array, moment_method
+from qdisk.utils import (
+    remove_casalogfile,
+    jypb_to_K_RJ,
+    jypb_to_K,
+    bettermoments_collapse_wrapper,
+    process_chunked_array,
+    moment_method,
+)
 import bettermoments as bm
 
 remove_casalogfile()
@@ -30,9 +37,7 @@ ia = casatools.image()
 
 
 class BoundingBox:
-
     def __init__(self, x, y, array, pad=0.0, collapse_to_2D=False):
-
         self.x_grid, self.y_grid = np.meshgrid(x, y)
         array = np.sum(array, axis=0)[None, :, :] if collapse_to_2D else array
         self.bbox = np.empty_like(array)
@@ -49,22 +54,26 @@ class BoundingBox:
             self.xmax[i] = np.nanmax(self.x_grid[a != 0.0]) + pad
             self.ymin[i] = np.nanmin(self.y_grid[a != 0.0]) - pad
             self.ymax[i] = np.nanmax(self.y_grid[a != 0.0]) + pad
-            self.bbox[i, :, :] =  (self.x_grid >= self.xmin[i]) * (self.x_grid <= self.xmax[i]) * (self.y_grid >= self.ymin[i]) * (self.y_grid <= self.ymax[i])
+            self.bbox[i, :, :] = (
+                (self.x_grid >= self.xmin[i])
+                * (self.x_grid <= self.xmax[i])
+                * (self.y_grid >= self.ymin[i])
+                * (self.y_grid <= self.ymax[i])
+            )
             self.xsize[i] = self.xmax[i] - self.xmin[i]
             self.ysize[i] = self.ymax[i] - self.ymin[i]
-        
+
         self.xmin = np.squeeze(self.xmin)
         self.xmax = np.squeeze(self.xmax)
         self.ymin = np.squeeze(self.ymin)
         self.ymax = np.squeeze(self.ymax)
         self.bbox = np.squeeze(self.bbox)
         self.xsize = np.squeeze(self.xsize)
-        self.ysize = np.squeeze(self.ysize)        
+        self.ysize = np.squeeze(self.ysize)
 
 
 class CasaImage:
     def __init__(self, imagename):
-
         self.fitsname = imagename
 
         # header
@@ -323,9 +332,8 @@ class FitsImage:
         vlim=None,
         nu0=None,
         downsample=False,
-        skipdata=False
+        skipdata=False,
     ):
-
         self.fitsname = fitsname
 
         # header
@@ -412,14 +420,13 @@ class FitsImage:
                 return np.nan
 
     def _get_FITS_properties(self, rel_dir_ax=True, nu0=None):
-
         # data unit
         self.data_unit = self.header["bunit"]
 
         # directional axis
         self.x, self.y = self._get_directional_axis(relative=rel_dir_ax)
-        self.x -= 0.5*self.dpix
-        self.y -= 0.5*self.dpix
+        self.x -= 0.5 * self.dpix
+        self.y -= 0.5 * self.dpix
 
         # spectral axis
         self.nu0 = self._get_restfreq() if nu0 is None else nu0
@@ -704,7 +711,9 @@ class FitsImage:
         return self.mask
 
     def get_mask_bounding_box(self, pad=0.0, collapse_to_2D=False):
-        self.mask_bbox = BoundingBox(self.x, self.y, self.mask, pad=pad, collapse_to_2D=collapse_to_2D)
+        self.mask_bbox = BoundingBox(
+            self.x, self.y, self.mask, pad=pad, collapse_to_2D=collapse_to_2D
+        )
         return self.mask_bbox
 
     def save_mask(self, maskname=None, overwrite=True, import_casa=False):
@@ -743,7 +752,6 @@ class FitsImage:
             )
 
     def estimate_rms(self, edgenchan=None, **mask_kwargs):
-
         self.get_mask(**mask_kwargs)
 
         if edgenchan is not None:
@@ -758,13 +766,11 @@ class FitsImage:
 
     @staticmethod
     def estimate_rms_each_chan(data, mask):
-
         rms = np.array([np.nanstd(d[m.astype(bool)]) for d, m in zip(data, mask)])
 
         return rms
 
     def extract_peak_spectrum(self, peak_coord=None, frame="icrs", **mask_kwargs):
-
         self.get_mask(**mask_kwargs)
 
         if peak_coord is None:
@@ -803,7 +809,7 @@ class FitsImage:
         std = np.squeeze([np.nanstd(d[m]) for d, m in zip(data, mask)])
 
         return v, spec, std
-    
+
     def extract_integrated_spectrum(self, rms=None, **mask_kwargs):
         mask = self.get_mask(**mask_kwargs)
 
@@ -816,7 +822,9 @@ class FitsImage:
         flux_spectrum = []
         flux_spectrum_error = []
         if (rms is None) and (not hasattr(self, "rms")):
-            print("Warning: Flux uncertainty will not be calculated due to the lack of rms value. If you want it, provide the rms value or estimate by estimate_rms function.")
+            print(
+                "Warning: Flux uncertainty will not be calculated due to the lack of rms value. If you want it, provide the rms value or estimate by estimate_rms function."
+            )
 
         for d, m in zip(data, mask):
             tointeg = d.flatten()[m.flatten()]
@@ -833,7 +841,7 @@ class FitsImage:
             else:
                 flux_error = 0.0
             flux_spectrum_error.append(flux_error)
-        
+
         return self.v, np.array(flux_spectrum), np.array(flux_spectrum_error)
 
     @staticmethod
@@ -858,7 +866,6 @@ class FitsImage:
         linecolor=None,
         **kwargs
     ):
-
         if ax is None:
             fig, ax = plt.subplots()
 
@@ -926,7 +933,9 @@ class FitsImage:
         except UnboundLocalError:
             return
 
-    def extract_flux(self, rms=None, verbose=True, velocity_resolution=1.0, **mask_kwargs):
+    def extract_flux(
+        self, rms=None, verbose=True, velocity_resolution=1.0, **mask_kwargs
+    ):
         """Measure the (velocity-integrated) flux density in a specified region.
 
         Parameters
@@ -937,34 +946,45 @@ class FitsImage:
         verbose : bool, optional
             Whether the message about the flux denisty will be shown in the terminal, by default True
         velocity_resolution : float, optional
-            velocity resolution in unit of the channel width which is used to correct for the spectral correlation, by default 1.0. 
+            velocity resolution in unit of the channel width which is used to correct for the spectral correlation, by default 1.0.
 
         Returns
         -------
         tuple of two floats
             (velocity-integrated) flux density and its uncertainty
         """
-        _, flux_spectrum, flux_spectrum_error = self.extract_integrated_spectrum(rms=rms, **mask_kwargs)
-        
+        _, flux_spectrum, flux_spectrum_error = self.extract_integrated_spectrum(
+            rms=rms, **mask_kwargs
+        )
+
         if len(flux_spectrum) == 1:
             flux = flux_spectrum[0]
             flux_error = flux_spectrum_error[0]
             if verbose:
                 print("Extracted flux density: {:.3e} Jy".format(flux))
-                print("Extracted flux density uncertainty: {:.3e} Jy".format(flux_error))
+                print(
+                    "Extracted flux density uncertainty: {:.3e} Jy".format(flux_error)
+                )
         else:
             flux = self.dchan * np.sum(flux_spectrum)
-            flux_error = self.dchan * np.sqrt(np.sum(flux_spectrum_error**2)) * np.sqrt(velocity_resolution)
+            flux_error = (
+                self.dchan
+                * np.sqrt(np.sum(flux_spectrum_error**2))
+                * np.sqrt(velocity_resolution)
+            )
             if verbose:
                 print("Extracted integrated flux density: {:.3e} Jy km/s".format(flux))
-                print("Extracted integrated flux density uncertainty: {:.3e} Jy km/s".format(flux_error))
+                print(
+                    "Extracted integrated flux density uncertainty: {:.3e} Jy km/s".format(
+                        flux_error
+                    )
+                )
 
         return flux, flux_error
 
     def get_cumulative_flux(
         self, rms=None, PA=0.0, incl=0.0, rmin=0.0, dr="beam", rmax=None, criteria="val"
     ):
-
         r, _ = self.get_disk_coord(PA=PA, incl=incl)
         dr = self.bmaj if dr == "beam" else self.dpix if dr == "pix" else dr
         rmax = np.nanmax(r) if rmax is None else rmax
@@ -1054,7 +1074,6 @@ class FitsImage:
     #         return r, f, None
 
     def _extract_cut(self, x, y, x_ip, y_ip, pad=10):
-
         # mask out non-relevant image
         pad = self.dpix * pad  # 10 pixel padding
         mask = is_within(x, (x_ip.min() - pad, x_ip.max() + pad)) & is_within(
@@ -1079,7 +1098,6 @@ class FitsImage:
         offset=0.0,
         side_average=True,
     ):
-
         major, minor = self.get_disk_coord(PA=PA, incl=incl, frame="cartesian")
 
         # get interpolate axis
@@ -1122,7 +1140,6 @@ class FitsImage:
         save=False,
         savefilename=None,
     ):
-
         if self.ndim < 3:
             raise AssertionError(
                 "Dimension of the data is not in 3D. pvcut is not possible."
@@ -1249,17 +1266,16 @@ class FitsImage:
         nchunks=None,
         verbose=False,
     ):
-        
         if rms is None and not hasattr(self, "rms"):
             if verbose:
                 print("Estimating rms...")
             self.estimate_rms(edgenchan=noisechannel)
             if verbose:
                 print("rms: {} mJy/beam".format(rms * 1e3))
-        
+
         rms = self.rms.copy() if rms is None else rms
         data = self.data.copy()
-        velax = self.v.copy() # velocity axis for bettermoments in m/s
+        velax = self.v.copy()  # velocity axis for bettermoments in m/s
         # if np.all(np.diff(velax) < 0):
         #     data = data[::-1, :, :]
         #     velax = velax[::-1]
@@ -1297,7 +1313,7 @@ class FitsImage:
                 cmask = np.zeros(data.shape)
                 for extent in vel_extent:
                     firstchannel, lastchannel = [
-                        np.argmin(np.abs(velax - v)) for v in extent 
+                        np.argmin(np.abs(velax - v)) for v in extent
                     ]
                     if firstchannel > lastchannel:
                         tmp = lastchannel
@@ -1309,7 +1325,7 @@ class FitsImage:
                 cmask = np.where(cmask != 0.0, 1.0, 0.0)
             else:
                 firstchannel, lastchannel = [
-                    np.argmin(np.abs(velax - v)) for v in vel_extent 
+                    np.argmin(np.abs(velax - v)) for v in vel_extent
                 ]
                 if firstchannel > lastchannel:
                     tmp = lastchannel
@@ -1318,7 +1334,7 @@ class FitsImage:
                 cmask = bm.get_channel_mask(
                     data=data, firstchannel=firstchannel, lastchannel=lastchannel
                 )
-        
+
         # mask combination
         if verbose:
             print("Combining the masks...")
@@ -1339,28 +1355,53 @@ class FitsImage:
             if verbose:
                 print("Going to compute with {} chunks...".format(nchunks))
             # note that bettermoment uses velocity unit of m/s
-            moments = process_chunked_array(bettermoments_collapse_wrapper, data, moment=moment, velax=velax, rms=rms, nchunks=nchunks, axis=0)
+            moments = process_chunked_array(
+                bettermoments_collapse_wrapper,
+                data,
+                moment=moment,
+                velax=velax,
+                rms=rms,
+                nchunks=nchunks,
+                axis=0,
+            )
         else:
             # note that bettermoment uses velocity unit of m/s
-            moments = bettermoments_collapse_wrapper(data=data, moment=moment, velax=velax, rms=rms)
-        
+            moments = bettermoments_collapse_wrapper(
+                data=data, moment=moment, velax=velax, rms=rms
+            )
+
         # workaround to force the unmasked region to be nan
         for m in moments:
             m[np.all(mask == 0.0, axis=0)] = np.nan
 
         if save:
-            bm.save_to_FITS(moments=moments, method=moment_method[moment], path=self.fitsname, outname=savefilename)
-            saved_to = savefilename.replace(".fits", "_*.fits") if savefilename is not None else self.fitsname.replace(".fits", "_*.fits")
+            bm.save_to_FITS(
+                moments=moments,
+                method=moment_method[moment],
+                path=self.fitsname,
+                outname=savefilename,
+            )
+            saved_to = (
+                savefilename.replace(".fits", "_*.fits")
+                if savefilename is not None
+                else self.fitsname.replace(".fits", "_*.fits")
+            )
             # use velocity unit of km/s instead of m/s which is the default of bettermoments; to be compatible with several CASA tasks
-            outputs = bm.collapse_method_products(method=moment_method[moment]).split(', ')
+            outputs = bm.collapse_method_products(method=moment_method[moment]).split(
+                ", "
+            )
             for ext in outputs:
                 filename = saved_to.replace("*", ext)
                 bunit = fits.getheader(filename)["BUNIT"]
                 if " m/s" in bunit:
-                    fits.setval(filename=filename, keyword="BUNIT", value=bunit.replace("m/s", "km/s"))
+                    fits.setval(
+                        filename=filename,
+                        keyword="BUNIT",
+                        value=bunit.replace("m/s", "km/s"),
+                    )
             if verbose:
                 print("Saved into {}.".format(saved_to))
-        
+
         return moments
 
     def radial_profile(
@@ -1377,7 +1418,6 @@ class FitsImage:
         savefileheader="",
         **mask_kwargs
     ):
-
         r, _ = self.get_disk_coord(PA=PA, incl=incl)
 
         if rbins is None:
@@ -1466,10 +1506,101 @@ class FitsImage:
 
         return rvals, ravgs, rstds
 
+    def azimuthal_profile(
+        self,
+        PA=0.0,
+        incl=45.0,
+        thetabins=None,
+        thetamin=-180.0,
+        thetamax=180.0,
+        rin=0.0,
+        rout=1.0,
+        assume_correlated=True,
+        save=False,
+        savefilename=None,
+        savefileheader="",
+        **mask_kwargs
+    ):
+        _, theta = self.get_disk_coord(PA=PA, incl=incl) # in radian
+
+        if thetabins is None:
+            r_center = np.average([rin, rout])
+            thetabin_width = self.bmaj / 4.0 / r_center  # 1/4 of bmaj in radian at r_center
+            thetabins = np.arange(thetamin, thetamax, thetabin_width)
+
+        tvals = np.average([thetabins[1:], thetabins[:-1]], axis=0)
+
+        rmin = mask_kwargs.pop("rmin", rin)
+        rmax = mask_kwargs.pop("rmax", rout)
+        self.get_mask(PA=PA, incl=incl, rmin=rmin, rmax=rmax, **mask_kwargs)
+
+        mask = self.mask.flatten()
+        tpnts = theta.flatten()[mask]
+        toavg = self.data.flatten()[mask]
+        tidxs = np.digitize(tpnts, thetabins)
+
+        # calculate number of beams per bin
+        nbeams = 1
+        # if assume_correlated:
+        #     if np.diff(tvals).mean() > (self.bmaj + self.bmin) * 0.5:
+        #         nbeams = np.array(
+        #             [
+        #                 toavg[tidxs == t].size
+        #                 * self.dpix**2
+        #                 / self.Omega_beam_arcsec2
+        #                 for t in range(1, thetabins.size)
+        #             ]
+        #         )
+        #     else:
+        #         tidxs_full = np.digitize(theta.flatten(), rbins)
+        #         arc_ratio = np.array(
+        #             [
+        #                 toavg[ridxs == r].size
+        #                 / self.data.flatten()[ridxs_full == r].size
+        #                 for r in range(1, rbins.size)
+        #             ]
+        #         )
+        #         # if wedge_angle is None:
+        #         #     arc_length = np.abs(mask_kwargs.get("thetamax", -180) - mask_kwargs.get("thetamin", 180)) / 360.
+        #         #     if mask_kwargs.get("abs_theta", False):
+        #         #         arc_length *= 2
+        #         #     if mask_kwargs.get("exclude_theta", False):
+        #         #         arc_length = 1. - arc_length
+        #         # else:
+        #         #     arc_length = wedge_angle*4 / 360.
+        #         # arc_length = 1. if arc_length > 1. else arc_length
+        #         # print(arc_length)
+        #         from scipy.special import ellipe
+
+        #         e = np.sin(np.radians(incl))
+        #         nbeams = (
+        #             4 * rvals * ellipe(e) * arc_ratio / self.bmaj
+        #         )  # elliptic integral for perimeter length of ellipse
+        #         # nbeams = 2.0 * np.pi * rvals * arc_ratio / self.bmaj
+        # else:
+        #     nbeams = 1
+
+        print("Calculating radial profile...")
+        tavgs = np.array([np.mean(toavg[tidxs == t]) for t in range(1, thetabins.size)])
+        tstds = np.array([np.std(toavg[tidxs == t]) for t in range(1, thetabins.size)])
+        tstds /= np.sqrt(nbeams)
+        print("Done.")
+
+        if save:
+            if savefilename is None:
+                savefilename = self.fitsname.replace(".fits", "_radialProfile.txt")
+            np.savetxt(
+                savefilename,
+                np.stack([tvals, tavgs, tstds], axis=1),
+                fmt="%.8e",
+                header=savefileheader,
+            )
+
+        return tvals, tavgs, tstds
+
     def spectrally_collapse(
         self, vrange=None, sigma_clip=None, rms=None, noiseedgenchan=3, mode="average"
     ):
-
         if self.ndim < 3:
             raise ValueError("The image is not 3D. Spectral collapse is not avilable.")
 
@@ -1620,7 +1751,6 @@ class FitsImage:
 
 class PVFitsImage:
     def __init__(self, fitsname, squeeze=True, xlim=None, vlim=None, downsample=False):
-
         self.fitsname = fitsname
 
         # header
@@ -1641,7 +1771,6 @@ class PVFitsImage:
             self.downsample_cube(*downsample)
 
     def _get_PVFITS_properties(self):
-
         # data unit
         self.data_unit = self.header["bunit"]
 
