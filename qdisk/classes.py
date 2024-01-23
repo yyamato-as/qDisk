@@ -1513,6 +1513,7 @@ class FitsImage:
         thetabins=None,
         thetamin=-180.0,
         thetamax=180.0,
+        r=None,
         rin=0.0,
         rout=1.0,
         assume_correlated=True,
@@ -1523,15 +1524,19 @@ class FitsImage:
     ):
         _, theta = self.get_disk_coord(PA=PA, incl=incl) # in radian
 
+        r_center = np.average([rin, rout]) if r is None else r
         if thetabins is None:
-            r_center = np.average([rin, rout])
             thetabin_width = self.bmaj / 4.0 / r_center  # 1/4 of bmaj in radian at r_center
             thetabins = np.arange(thetamin, thetamax, thetabin_width)
 
         tvals = np.average([thetabins[1:], thetabins[:-1]], axis=0)
 
+        if r is not None:
+            rin = r - self.bmaj / 8.0
+            rout = r + self.bmaj / 8.0
+
         rmin = mask_kwargs.pop("rmin", rin)
-        rmax = mask_kwargs.pop("rmax", rout)
+        rmax = mask_kwargs.pop("rmax", rout) 
         self.get_mask(PA=PA, incl=incl, rmin=rmin, rmax=rmax, **mask_kwargs)
 
         mask = self.mask.flatten()
