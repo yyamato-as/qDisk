@@ -1425,11 +1425,11 @@ class FitsImage:
             nbeams = npix * self.dpix**2 / self.Omega_beam_arcsec2
         else:  # consider the length of arc
             r = r.flatten()
-            npix_full_wedge = [r[(r >= rbins[idx]) & (r <= rbins[idx+1])].size for idx in range(rvals.size)]
+            npix_full_wedge = np.array([r[(r >= rbins[idx]) & (r <= rbins[idx+1])].size for idx in range(rvals.size)])
 
             e = np.sin(np.radians(incl))
             nbeams = (
-                4 * rvals * ellipe(e) * npix / npix_full_wedge / self.bmaj
+                4 * rvals * ellipe(e) * npix / npix_full_wedge[:, None] / self.bmaj
             )
 
         return nbeams
