@@ -1429,7 +1429,7 @@ class FitsImage:
 
             e = np.sin(np.radians(incl))
             nbeams = (
-                4 * rvals * ellipe(e) * npix / npix_full_wedge[:, None] / self.bmaj
+                4 * rvals[:, None] * ellipe(e) * npix / npix_full_wedge[:, None] / self.bmaj
             )
 
         return nbeams
