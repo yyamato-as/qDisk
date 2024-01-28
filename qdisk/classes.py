@@ -1696,9 +1696,9 @@ class FitsImage:
 
         self.get_mask(PA=PA, incl=incl, **mask_kwargs)
 
-        _r = np.expand_dims(r.reshape(-1), axis=0) # expand the dimension to be broadcasted with 3D mask array
-        _mask = self.mask.reshape(self.mask.shape[0], -1)
-        _data = self.data.reshape(self.data.shape[0], -1)
+        # _r = np.expand_dims(r.reshape(-1), axis=0) # expand the dimension to be broadcasted with 3D mask array
+        # _mask = self.mask.reshape(self.mask.shape[0], -1)
+        # _data = self.data.reshape(self.data.shape[0], -1)
 
         I_arr, dI_arr, npix_arr = [], [], []
 
@@ -1706,13 +1706,13 @@ class FitsImage:
             rin = rbins[ridx]
             rout = rbins[ridx + 1]
 
-            toavg = _data[_mask & (_r >= rin) & (_r <= rout)]
-            I = np.mean(toavg, axis=1)
-            dI = np.std(toavg, axis=1)
+            I = np.array([np.mean(d[m & (r >= rin) & (r <= rout)]) for d, m in zip(self.data, self.mask)])
+            dI = np.array([np.std(d[m & (r >= rin) & (r <= rout)]) for d, m in zip(self.data, self.mask)])
+            npix = np.array([d[m & (r >= rin) & (r <= rout)].size for d, m in zip(self.data, self.mask)])
 
             I_arr.append(I)
             dI_arr.append(dI)
-            npix_arr.append(toavg.size)
+            npix_arr.append(npix)
         
         # calculate number of beams
         if assume_correlated:
