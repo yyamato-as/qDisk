@@ -17,6 +17,7 @@ from qdisk.utils import (
     moment_method,
 )
 import bettermoments as bm
+from scipy.special import ellipe
 
 remove_casalogfile()
 
@@ -1404,6 +1405,35 @@ class FitsImage:
 
         return moments
 
+    def radial_sampling(self, PA=0.0, incl=45.0, rbins=None, rmin=0.0, rmax=None):
+        r, _ = self.get_disk_coord(PA=PA, incl=incl)
+
+        if rbins is None:
+            rbin_width = self.bmaj / 4.0  # 1/4 of bmaj in arcsec
+            if rmax is None:
+                rmax = np.nanmax(r)
+            rbins = np.arange(rmin, rmax, rbin_width)
+
+        rvals = np.average([rbins[1:], rbins[:-1]], axis=0)
+
+        return r, rvals, rbins
+
+    def calc_nbeams(self, incl, r, rbins, rvals, npix):
+        if (
+            np.diff(rvals).mean() > (self.bmaj + self.bmin) * 0.5
+        ):  # the radial bin width is larger than a beam width
+            nbeams = npix * self.dpix**2 / self.Omega_beam_arcsec2
+        else:  # consider the length of arc
+            r = r.flatten()
+            npix_full_wedge = [r[(r >= rbins[idx]) & (r <= rbins[idx+1])].size for idx in range(rvals.size)]
+
+            e = np.sin(np.radians(incl))
+            nbeams = (
+                4 * rvals * ellipe(e) * npix / npix_full_wedge / self.bmaj
+            )
+
+        return nbeams
+
     def radial_profile(
         self,
         PA=0.0,
@@ -1418,15 +1448,9 @@ class FitsImage:
         savefileheader="",
         **mask_kwargs
     ):
-        r, _ = self.get_disk_coord(PA=PA, incl=incl)
-
-        if rbins is None:
-            rbin_width = self.bmaj / 4.0  # 1/4 of bmaj in arcsec
-            if rmax is None:
-                rmax = np.nanmax(r)
-            rbins = np.arange(rmin, rmax, rbin_width)
-
-        rvals = np.average([rbins[1:], rbins[:-1]], axis=0)
+        r, rvals, rbins = self.radial_sampling(
+            PA=PA, incl=incl, rbins=rbins, rmin=rmin, rmax=rmax
+        )
 
         if wedge_angle is not None:
             mask_kwargs.update(
@@ -1522,11 +1546,13 @@ class FitsImage:
         savefileheader="",
         **mask_kwargs
     ):
-        _, theta = self.get_disk_coord(PA=PA, incl=incl) # in radian
+        _, theta = self.get_disk_coord(PA=PA, incl=incl)  # in radian
 
         r_center = np.average([rin, rout]) if r is None else r
         if thetabins is None:
-            thetabin_width = self.bmaj / 4.0 / r_center  # 1/4 of bmaj in radian at r_center
+            thetabin_width = (
+                self.bmaj / 4.0 / r_center
+            )  # 1/4 of bmaj in radian at r_center
             thetabins = np.arange(thetamin, thetamax, thetabin_width)
 
         tvals = np.average([thetabins[1:], thetabins[:-1]], axis=0)
@@ -1536,7 +1562,7 @@ class FitsImage:
             rout = r + self.bmaj / 8.0
 
         rmin = mask_kwargs.pop("rmin", rin)
-        rmax = mask_kwargs.pop("rmax", rout) 
+        rmax = mask_kwargs.pop("rmax", rout)
         self.get_mask(PA=PA, incl=incl, rmin=rmin, rmax=rmax, **mask_kwargs)
 
         mask = self.mask.flatten()
@@ -1634,6 +1660,71 @@ class FitsImage:
             dchan = np.diff(v).mean()
             data[np.isnan(data)] = 0.0
             self.collapsed = np.trapz(data, dx=dchan, axis=0)
+
+    def radial_spectra(
+        self,
+        PA=0.0,
+        incl=45.0,
+        rbins=None,
+        rmin=0.0,
+        rmax=None,
+        wedge_angle=None,
+        assume_correlated=True,
+        save=False,
+        savefilename=None,
+        savefileheader="",
+        **mask_kwargs
+    ):
+        if self.ndim < 3:
+            raise ValueError(
+                "The data is not 3D, so calculation of spectra is not possible."
+            )
+
+        r, rvals, rbins = self.radial_sampling(
+            PA=PA, incl=incl, rbins=rbins, rmin=rmin, rmax=rmax
+        )
+
+        if wedge_angle is not None:
+            mask_kwargs.update(
+                dict(
+                    thetamin=wedge_angle,
+                    thetamax=180 - wedge_angle,
+                    abs_theta=True,
+                    exclude_theta=True,
+                )
+            )
+
+        self.get_mask(PA=PA, incl=incl, **mask_kwargs)
+
+        _r = np.expand_dims(r.reshape(-1), axis=0) # expand the dimension to be broadcasted with 3D mask array
+        _mask = self.mask.reshape(self.mask.shape[0], -1)
+        _data = self.data.reshape(self.data.shape[0], -1)
+
+        I_arr, dI_arr, npix_arr = [], [], []
+
+        for ridx in range(rvals.size):
+            rin = rbins[ridx]
+            rout = rbins[ridx + 1]
+
+            toavg = _data[_mask & (_r >= rin) & (_r <= rout)]
+            I = np.mean(toavg, axis=1)
+            dI = np.std(toavg, axis=1)
+
+            I_arr.append(I)
+            dI_arr.append(dI)
+            npix_arr.append(toavg.size)
+        
+        # calculate number of beams
+        if assume_correlated:
+            npix = np.squeeze(npix_arr)
+            nbeams = self.calc_nbeams(incl=incl, r=r, rbins=rbins, rvals=rvals, npix=npix)
+        else:
+            nbeams = 1
+        
+        I = np.squeeze(I_arr)
+        dI = np.squeeze(dI_arr) / np.sqrt(nbeams)
+
+        return rvals, self.v, I, dI
 
     # def get_directional_coord(self, center_coord=None, in_arcsec=True):
     #     """Generate a (RA\cos(Dec), Dec) coordinate (1D each) in arcsec. Assume the unit for coordinates in the header is deg.
