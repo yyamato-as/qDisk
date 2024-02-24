@@ -758,16 +758,16 @@ class FitsImage:
         if edgenchan is not None:
             data = np.concatenate((self.data[:edgenchan], self.data[-edgenchan:]))
             mask = np.concatenate((self.mask[:edgenchan], self.mask[-edgenchan:]))
-            self.rms = np.nanstd(data[mask & data != 0.0])
+            self.rms = np.nanstd(data[mask & (data != 0.0)])
 
         else:
-            self.rms = np.nanstd(self.data[self.mask & self.data != 0.0])
+            self.rms = np.nanstd(self.data[self.mask & (self.data != 0.0)])
 
         return self.rms
 
     @staticmethod
     def estimate_rms_each_chan(data, mask):
-        rms = np.array([np.nanstd(d[m.astype(bool) & d != 0.0]) for d, m in zip(data, mask)])
+        rms = np.array([np.nanstd(d[m.astype(bool) & (d != 0.0)]) for d, m in zip(data, mask)])
 
         return rms
 
