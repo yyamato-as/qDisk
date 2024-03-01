@@ -573,7 +573,6 @@ class WCSMap(Map):
         ylim=None,
         downsample=False,
         set_aspect=True,
-        invert_xaxis=True,
     ):
         self.wcs = WCS(fits.getheader(fitsname)).celestial
         if ax is None:
@@ -588,7 +587,7 @@ class WCSMap(Map):
                 ylim=ylim,
                 downsample=downsample,
                 set_aspect=set_aspect,
-                invert_xaxis=invert_xaxis
+                invert_xaxis=False
             )
 
     ### MAP FUNCTION ###
