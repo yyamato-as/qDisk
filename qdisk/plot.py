@@ -347,7 +347,7 @@ class Map(FitsImage):
 
     ### FANCY ADDENDA STUFF ###
 
-    def add_beam(self, beam=None, loc="lower left", color="white", fill=True, hatch="///////////"):
+    def add_beam(self, beam=None, loc="lower left", color="white", fill=True, hatch="///////////", transform=None):
         from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
 
         if beam is not None:
@@ -360,7 +360,7 @@ class Map(FitsImage):
             height = self.bmin
             angle = 90 - self.bpa  # to make measured from east
         beam = AnchoredEllipse(
-            self.ax.transData,
+            self.ax.transData if transform is None else transform,
             width=width,
             height=height,
             angle=angle,
@@ -382,13 +382,13 @@ class Map(FitsImage):
         self.ax.add_artist(scalebar)
 
     def _scalebar_with_label(
-        self, scale, text, width=0.0, loc="lower right", color="white", **kwargs
+        self, scale, text, width=0.0, loc="lower right", color="white", transform=None, **kwargs
     ):
         from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
         import matplotlib.font_manager as fm
 
         scalebar = AnchoredSizeBar(
-            self.ax.transData,
+            self.ax.transData if transform is None else transform,
             size=scale,
             label=text,
             loc=loc,
