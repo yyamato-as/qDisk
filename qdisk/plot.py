@@ -423,7 +423,7 @@ class Map(FitsImage):
         self.colorbar = fig.colorbar(
             self.colormap, cax=cax, orientation=orientation, extend=extend, **kwargs
         )
-        self.colorbar.set_label(label, **kwargs)
+        self.colorbar.set_label(label, rotation=rotation, labelpad=labelpad)
 
         if position == "top":
             cax.xaxis.set_ticks_position("top")
