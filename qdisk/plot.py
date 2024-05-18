@@ -403,6 +403,7 @@ class Map(FitsImage):
         label=None,
         rotation=270,
         labelpad=15,
+        **kwargs
     ):
         from mpl_toolkits.axes_grid1 import make_axes_locatable
         import matplotlib.axes as maxes
@@ -420,7 +421,7 @@ class Map(FitsImage):
             "horizontal" if position == "top" or position == "bottom" else "vertical"
         )
         self.colorbar = fig.colorbar(
-            self.colormap, cax=cax, orientation=orientation, extend=extend
+            self.colormap, cax=cax, orientation=orientation, extend=extend, **kwargs
         )
         self.colorbar.set_label(label, rotation=rotation, labelpad=labelpad)
 
