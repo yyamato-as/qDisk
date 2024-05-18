@@ -1,5 +1,3 @@
-from dis import dis
-from pandas import Interval
 from .utils import jypb_to_K_RJ, jypb_to_K
 from .classes import FitsImage, PVFitsImage
 from .utils import is_within, plot_2D_map, add_beam
@@ -10,6 +8,8 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 from astropy.visualization import ImageNormalize, LinearStretch
 from matplotlib import ticker
 import matplotlib.patheffects as pe
+import astropy.io.fits as fits
+from astropy.wcs import WCS
 
 plt.rcParams.update(
     {
@@ -192,7 +192,7 @@ class Map(FitsImage):
         stretch=None,
         **kwargs
     ):
-        if not method in ["imshow", "pcolorfast", "pcolormesh", "contourf"]:
+        if not method in ["imshow", "pcolorfast", "pcolorfast_wcs", "pcolormesh", "contourf", "pcolormesh_wcs", "contourf_wcs"]:
             raise AttributeError(
                 "Method {:s} is not supported for colormap plot.".format(method)
             )
@@ -423,7 +423,7 @@ class Map(FitsImage):
         self.colorbar = fig.colorbar(
             self.colormap, cax=cax, orientation=orientation, extend=extend, **kwargs
         )
-        self.colorbar.set_label(label, rotation=rotation, labelpad=labelpad)
+        self.colorbar.set_label(label, **kwargs)
 
         if position == "top":
             cax.xaxis.set_ticks_position("top")
@@ -561,6 +561,205 @@ class Map(FitsImage):
 
     # def _get_threshold_mask(self, ):
     #     self.estimate_rms()
+            
+
+class WCSMap(Map):
+    def __init__(
+        self,
+        fitsname,
+        ax=None, # should be wcsaxes
+        data_scaling_factor=1.0,
+        center_coord=None,
+        xlim=None,
+        ylim=None,
+        downsample=False,
+        set_aspect=True,
+    ):
+        self.wcs = WCS(fits.getheader(fitsname)).celestial
+        if ax is None:
+            fig, ax = plt.subplots(layout="constrained", projection=self.wcs)
+        else:
+            super().__init__(
+                fitsname_or_data=fitsname,
+                ax=ax,
+                data_scaling_factor=data_scaling_factor,
+                center_coord=center_coord,
+                xlim=xlim,
+                ylim=ylim,
+                downsample=downsample,
+                set_aspect=set_aspect,
+                invert_xaxis=False
+            )
+
+    ### MAP FUNCTION ###
+
+    def plot_colormap(
+        self,
+        method="pcolorfast",
+        cmap="viridis",
+        vmin=None,
+        vmax=None,
+        interval=None,
+        stretch=None,
+        **kwargs
+    ):
+        if not method in ["imshow", "pcolorfast", "pcolormesh", "contourf"]:
+            raise AttributeError(
+                "Method {:s} is not supported for colormap plot.".format(method)
+            )
+
+        # normalization
+        if stretch is None:
+            stretch = LinearStretch()
+        norm = self._normalize(vmin=vmin, vmax=vmax, interval=interval, stretch=stretch)
+        plot = getattr(self, "_" + method + "_self")
+        self.colormap = plot(cmap=cmap, norm=norm, **kwargs)
+
+    def overlay_contour(
+        self,
+        fitsname_or_data="self",
+        data_scaling_factor=1.0,
+        levels=5,
+        color="grey",
+        linewidth=1.0,
+        linestyle="solid",
+        **kwargs
+    ):
+
+        if isinstance(fitsname_or_data, str):
+            if fitsname_or_data == "self":
+                data = self.data
+            else:
+                image = FitsImage(
+                    fitsname=fitsname_or_data,
+                    squeeze=True,
+                    xlim=self.xlim,
+                    ylim=self.ylim,
+                    downsample=self.downsample,
+                )
+                image.shift_phasecenter_toward(self.center_coord)
+                data = image.data * data_scaling_factor
+        else:
+            data = fitsname_or_data * data_scaling_factor
+
+        self.contour = self._contour(
+            data,
+            levels=levels,
+            color=color,
+            linewidth=linewidth,
+            linestyle=linestyle,
+            **kwargs
+        )
+
+    def _contour(
+        self,
+        data,
+        levels=5,
+        color="black",
+        linewidth=1.0,
+        linestyle="solid",
+        **kwargs
+    ):
+        im = self.ax.contour(
+            data,
+            levels=levels,
+            colors=color,
+            linewidths=linewidth,
+            linestyles=linestyle,
+            **kwargs
+        )
+        return im
+
+    def _contour_self(self, levels=5, color="black"):
+        im = self.ax.contour(self.data, levels=levels, colors=color)
+        return im
+
+    def _contourf_self(self, levels=10, cmap="viridis", norm=None, **kwargs):
+        if isinstance(levels, (list, np.ndarray)):
+            vmin = np.nanmin(levels)
+            vmax = np.nanmax(levels)
+        else:
+            vmin, vmax = norm.vmin, norm.vmax
+        data = self.data.copy()
+        # data[data < vmin] = vmin
+        # data[data > vmax] = vmax
+        im = self.ax.contourf(
+            data, levels=levels, cmap=cmap, norm=norm, **kwargs
+        )
+        return im
+
+    def _pcolorfast_self(self, cmap="viridis", norm=None, **kwargs):
+        im = self.ax.pcolorfast(
+            self.data, rasterized=True, cmap=cmap, norm=norm, **kwargs
+        )
+        return im
+
+    def _pcolormesh_self(self, cmap="viridis", norm=None, **kwargs):
+        im = self.ax.pcolormesh(
+            self.data, rasterized=True, cmap=cmap, norm=norm, **kwargs
+        )
+        return im
+
+    ### FANCY ADDENDA STUFF ###
+
+    def add_beam(self, beam=None, loc="lower left", color="white", fill=True, hatch="///////////"):
+        from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
+
+        if beam is not None:
+            bmaj, bmin, pa = beam
+            width = bmaj
+            height = bmin
+            angle = 90 - pa
+        else:
+            width = self.bmaj
+            height = self.bmin
+            angle = 90 - self.bpa  # to make measured from east
+        beam = AnchoredEllipse(
+            self.ax.transData,
+            width=width / self.dpix,
+            height=height / self.dpix,
+            angle=angle,
+            loc=loc,
+            pad=0.5,
+            borderpad=0.5,
+            frameon=False,
+        )
+        beam.ellipse.set(color=color, fill=fill, hatch=hatch)
+        self.ax.add_artist(beam)
+
+    def add_scalebar(
+        self, scale=50, text=None, width=0.0, loc="lower right", color="white", **kwargs
+    ):
+
+        scalebar = self._scalebar_with_label(
+            scale=scale, text=text, width=width, loc=loc, color=color, **kwargs
+        )
+        self.ax.add_artist(scalebar)
+
+    def _scalebar_with_label(
+        self, scale, text, width=0.0, loc="lower right", color="white", **kwargs
+    ):
+        from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+        import matplotlib.font_manager as fm
+
+        scalebar = AnchoredSizeBar(
+            self.ax.transData,
+            size=scale / self.dpix,
+            label=text,
+            loc=loc,
+            pad=0.1,
+            borderpad=0.5,
+            sep=3,
+            frameon=False,
+            color=color,
+            size_vertical=width,
+            fontproperties=fm.FontProperties(size=9),
+            **kwargs
+        )
+
+        return scalebar
+
+    
 
 class MultiPlot:
     def __init__(self, ncols=None, nrows=None, npanels=None, figsize=(3,3), sharex=True, sharey=True, max_figsize=(15, None)):
