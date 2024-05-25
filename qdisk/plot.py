@@ -1469,7 +1469,7 @@ class ChannelMap(FitsImage):
         # setup figure instance
         self.nrows, self.ncols = self.get_nrows_ncols(npanels=self.v.size, ncols=ncols, nrows=nrows, panelsize=panelsize, max_figsize=max_figsize)
         w, h = panelsize
-        self.fig = plt.figure(figsize=(self.ncols*w, self.nrows*h) if figsize is None else figsize, layout="constrained")
+        self.fig = plt.figure(figsize=(self.ncols*w, self.nrows*h) if figsize is None else figsize)
 
         self.colorbar = cbar_mode is not None
         self.imgrid = ImageGrid(
@@ -1494,6 +1494,8 @@ class ChannelMap(FitsImage):
             ]  # only colorbar at bottom right panel
 
         self.cbar_label = cbar_label if cbar_label is not None else self.data_unit
+
+        self.fig.tight_layout()
 
     def _data_scaling(self, factor):
         self.data *= factor
