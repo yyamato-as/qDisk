@@ -328,6 +328,7 @@ class FitsImage:
         fitsname,
         squeeze=True,
         rel_dir_ax=True,
+        FoV=None,
         xlim=None,
         ylim=None,
         vlim=None,
@@ -355,8 +356,12 @@ class FitsImage:
             if squeeze:
                 self.data = np.squeeze(self.data)
 
-            self.xlim = xlim
-            self.ylim = ylim
+            if FoV is not None:
+                self.xlim = (-FoV * 0.5, FoV * 0.5)
+                self.ylim = (-FoV * 0.5, FoV * 0.5)
+            else:
+                self.xlim = xlim
+                self.ylim = ylim
             self.vlim = vlim
             self._cutout(xlim=xlim, ylim=ylim, vlim=vlim)
 
