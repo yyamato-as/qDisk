@@ -275,7 +275,7 @@ class Map(FitsImage):
         return im
 
     def _contour_self(self, levels=5, color="black"):
-        im = self.ax.contour(self.x, self.y, self.data, levels=levels, colors=color)
+        im = self.ax.contour(self.x, self.y, self.data * self.data_scaling_factor, levels=levels, colors=color)
         return im
 
     # def _set_contourf_extend(self):
@@ -290,19 +290,19 @@ class Map(FitsImage):
         # data[data < vmin] = vmin
         # data[data > vmax] = vmax
         im = self.ax.contourf(
-            self.x, self.y, data, levels=levels, cmap=cmap, norm=norm, **kwargs
+            self.x, self.y, data * self.data_scaling_factor, levels=levels, cmap=cmap, norm=norm, **kwargs
         )
         return im
 
     def _pcolorfast_self(self, cmap="viridis", norm=None, **kwargs):
         im = self.ax.pcolorfast(
-            self.x, self.y, self.data, rasterized=True, cmap=cmap, norm=norm, **kwargs
+            self.x, self.y, self.data * self.data_scaling_factor, rasterized=True, cmap=cmap, norm=norm, **kwargs
         )
         return im
 
     def _pcolormesh_self(self, cmap="viridis", norm=None, **kwargs):
         im = self.ax.pcolormesh(
-            self.x, self.y, self.data, rasterized=True, cmap=cmap, norm=norm, **kwargs
+            self.x, self.y, self.data * self.data_scaling_factor, rasterized=True, cmap=cmap, norm=norm, **kwargs
         )
         return im
 
