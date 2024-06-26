@@ -80,7 +80,7 @@ class Map(FitsImage):
         if invert_xaxis:
             self.ax.invert_xaxis()
 
-        self._data_scaling(factor=self.data_scaling_factor)
+        # self._data_scaling(factor=self.data_scaling_factor)
 
         if set_aspect:
             self._set_aspect()
@@ -308,7 +308,7 @@ class Map(FitsImage):
 
     def _normalize(self, vmin=None, vmax=None, interval=None, stretch=LinearStretch()):
         norm = ImageNormalize(
-            self.data, vmin=vmin, vmax=vmax, interval=interval, stretch=stretch
+            self.data * self.data_scaling_factor, vmin=vmin, vmax=vmax, interval=interval, stretch=stretch
         )
         return norm
 
