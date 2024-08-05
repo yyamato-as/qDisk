@@ -1495,7 +1495,7 @@ class ChannelMap(FitsImage):
 
         self.cbar_label = cbar_label if cbar_label is not None else self.data_unit
 
-        self.fig.tight_layout()
+        # self.fig.tight_layout()
 
     def _data_scaling(self, factor):
         self.data *= factor

@@ -820,7 +820,7 @@ class FitsImage:
         mask = self.get_mask(**mask_kwargs)
 
         if self.ndim <= 2:
-            data = np.expand_dims(data, axis=0)
+            data = np.expand_dims(self.data, axis=0)
             mask = np.expand_dims(mask, axis=0)
         else:
             data = self.data.copy()
