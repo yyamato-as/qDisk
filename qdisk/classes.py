@@ -480,6 +480,8 @@ class FitsImage:
         x0, y0 = self.get_phasecenter_coord()
         c_ref = SkyCoord(ra=x0, dec=y0, unit=u.arcsec, frame="icrs")
         dx, dy = c_ref.spherical_offsets_to(c)
+        dx = dx.to(u.arcsec).value
+        dy = dy.to(u.arcsec).value
 
         # if self.rel_dir_ax:
         #     dx = c.ra.arcsec - self.header["crval1"] * deg_to_arcsec
