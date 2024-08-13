@@ -477,21 +477,16 @@ class FitsImage:
             self.restore_original_cube()
 
         c = SkyCoord(coord, frame="icrs")
-        x0, y0 = self.get_phasecenter_coord()
+
+        if self.rel_dir_ax:
+            x0 = self.header["crval1"] * deg_to_arcsec
+            y0 = self.header["crval2"] * deg_to_arcsec
+        else:
+            x0, y0 = self.get_phasecenter_coord()
         c_ref = SkyCoord(ra=x0, dec=y0, unit=u.arcsec, frame="icrs")
         dx, dy = c_ref.spherical_offsets_to(c)
-        dx = dx.to(u.arcsec).value
-        dy = dy.to(u.arcsec).value
-
-        # if self.rel_dir_ax:
-        #     dx = c.ra.arcsec - self.header["crval1"] * deg_to_arcsec
-        #     dy = c.dec.arcsec - self.header["crval2"] * deg_to_arcsec
-        # else:
-        #     x0, y0 = self.get_phasecenter_coord()
-        #     dx = c.ra.arcsec - x0
-        #     dy = c.dec.arcsec - y0
-        self.x -= dx
-        self.y -= dy
+        self.x -= dx.to(u.arcsec).value
+        self.y -= dy.to(u.arcsec).value
 
         if not fix_FOV:
             self._cutout(xlim=self.xlim, ylim=self.ylim, vlim=self.vlim)
