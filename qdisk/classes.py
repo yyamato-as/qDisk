@@ -479,8 +479,8 @@ class FitsImage:
         c = SkyCoord(coord, frame="icrs")
 
         if self.rel_dir_ax:
-            x0 = self.header["crval1"] * deg_to_arcsec - 0.5 * self.dpix
-            y0 = self.header["crval2"] * deg_to_arcsec - 0.5 * self.dpix
+            x0 = self.header["crval1"] * deg_to_arcsec + 0.5 * self.dpix
+            y0 = self.header["crval2"] * deg_to_arcsec + 0.5 * self.dpix
         else:
             x0, y0 = self.get_phasecenter_coord()
         c_ref = SkyCoord(ra=x0, dec=y0, unit=u.arcsec, frame="icrs")
