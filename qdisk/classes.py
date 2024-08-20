@@ -1088,9 +1088,15 @@ class FitsImage:
         )
 
         x, y = x[mask].flatten(), y[mask].flatten()
+        data = self.data[mask].flatten()
+        yx = np.array([y, x]).T
+
+        # eliminate nan
+        data = data[np.isnan(data)]
+        yx = yx[np.isnan(data)]
 
         cut = griddata(
-            np.array([y, x]).T, self.data[mask].flatten(), (y_ip, x_ip), method="cubic"
+            yx, data, (y_ip, x_ip), method="cubic"
         )
 
         return cut
