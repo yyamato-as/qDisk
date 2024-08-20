@@ -1092,8 +1092,8 @@ class FitsImage:
         yx = np.array([y, x]).T
 
         # eliminate nan
-        data = data[~np.isnan(data)]
         yx = yx[~np.isnan(data)]
+        data = data[~np.isnan(data)]
 
         cut = griddata(
             yx, data, (y_ip, x_ip), method="cubic"
