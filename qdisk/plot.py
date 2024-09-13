@@ -671,7 +671,7 @@ class WCSMap(Map):
         return im
 
     def _contour_self(self, levels=5, color="black"):
-        im = self.ax.contour(self.data, levels=levels, colors=color)
+        im = self.ax.contour(self.data * self.data_scaling_factor, levels=levels, colors=color)
         return im
 
     def _contourf_self(self, levels=10, cmap="viridis", norm=None, **kwargs):
@@ -684,19 +684,19 @@ class WCSMap(Map):
         # data[data < vmin] = vmin
         # data[data > vmax] = vmax
         im = self.ax.contourf(
-            data, levels=levels, cmap=cmap, norm=norm, **kwargs
+            data * self.data_scaling_factor, levels=levels, cmap=cmap, norm=norm, **kwargs
         )
         return im
 
     def _pcolorfast_self(self, cmap="viridis", norm=None, **kwargs):
         im = self.ax.pcolorfast(
-            self.data, rasterized=True, cmap=cmap, norm=norm, **kwargs
+            self.data * self.data_scaling_factor, rasterized=True, cmap=cmap, norm=norm, **kwargs
         )
         return im
 
     def _pcolormesh_self(self, cmap="viridis", norm=None, **kwargs):
         im = self.ax.pcolormesh(
-            self.data, rasterized=True, cmap=cmap, norm=norm, **kwargs
+            self.data * self.data_scaling_factor, rasterized=True, cmap=cmap, norm=norm, **kwargs
         )
         return im
 

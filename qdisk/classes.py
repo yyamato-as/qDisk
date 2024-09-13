@@ -477,15 +477,16 @@ class FitsImage:
             self.restore_original_cube()
 
         c = SkyCoord(coord, frame="icrs")
+
         if self.rel_dir_ax:
-            dx = c.ra.arcsec - self.header["crval1"] * deg_to_arcsec
-            dy = c.dec.arcsec - self.header["crval2"] * deg_to_arcsec
+            x0 = self.header["crval1"] * deg_to_arcsec + 0.5 * self.dpix
+            y0 = self.header["crval2"] * deg_to_arcsec + 0.5 * self.dpix
         else:
             x0, y0 = self.get_phasecenter_coord()
-            dx = c.ra.arcsec - x0
-            dy = c.dec.arcsec - y0
-        self.x -= dx
-        self.y -= dy
+        c_ref = SkyCoord(ra=x0, dec=y0, unit=u.arcsec, frame="icrs")
+        dx, dy = c_ref.spherical_offsets_to(c)
+        self.x -= dx.to(u.arcsec).value
+        self.y -= dy.to(u.arcsec).value
 
         if not fix_FOV:
             self._cutout(xlim=self.xlim, ylim=self.ylim, vlim=self.vlim)
@@ -1087,9 +1088,15 @@ class FitsImage:
         )
 
         x, y = x[mask].flatten(), y[mask].flatten()
+        data = self.data[mask].flatten()
+        yx = np.array([y, x]).T
+
+        # eliminate nan
+        yx = yx[~np.isnan(data)]
+        data = data[~np.isnan(data)]
 
         cut = griddata(
-            np.array([y, x]).T, self.data[mask].flatten(), (y_ip, x_ip), method="cubic"
+            yx, data, (y_ip, x_ip), method="cubic"
         )
 
         return cut
