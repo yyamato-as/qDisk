@@ -1004,7 +1004,7 @@ class FitsImage:
 
         print("Applying curve-of-growth method...")
         for r in mask_radii:
-            f, df = self.get_flux(rms=rms, PA=PA, incl=incl, rmin=0.0, rmax=r)
+            f, df = self.extract_flux(rms=rms, PA=PA, incl=incl, rmin=0.0, rmax=r)
             radii.append(r)
             cum_f.append(f)
             cum_df.append(df)
