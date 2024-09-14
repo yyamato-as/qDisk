@@ -849,7 +849,10 @@ class FitsImage:
                 flux_error = 0.0
             flux_spectrum_error.append(flux_error)
 
-        return self.v, np.array(flux_spectrum), np.array(flux_spectrum_error)
+        if self.ndim <= 2:
+            return None, np.array(flux_spectrum), np.array(flux_spectrum_error)
+        else:
+            return self.v, np.array(flux_spectrum), np.array(flux_spectrum_error)
 
     @staticmethod
     def get_spectroscopic_data_text(mol, line_data):
