@@ -777,19 +777,18 @@ class FitsImage:
 
         return rms
 
-    def extract_peak_spectrum(self, peak_coord=None, frame="icrs", **mask_kwargs):
+    def extract_peak_spectrum(self, peak_coord, **mask_kwargs):
         self.get_mask(**mask_kwargs)
 
-        if peak_coord is None:
-            x0, y0 = self.get_phasecenter_coord()
-        else:
-            if isinstance(peak_coord, str):
-                peak_coord = SkyCoord(peak_coord, frame=frame)
-            x0, y0 = peak_coord.ra.arcsec, peak_coord.dec.arcsec
+        # if isinstance(peak_coord, str):
+        # peak_coord = SkyCoord(peak_coord, frame=frame)
+        # x0, y0 = peak_coord.ra.arcsec, peak_coord.dec.arcsec
 
-        x, y = self._get_directional_axis(relative=False)
+        self.shift_phasecenter_toward(peak_coord)
 
-        x_ind, y_ind = np.argmin(abs(x - x0)), np.argmin(abs(y - y0))
+        x, y = self._get_directional_axis(relative=True)
+
+        x_ind, y_ind = np.argmin(abs(x)), np.argmin(abs(y))
 
         # set velocity range
         vrange = (mask_kwargs.get("vmin", -np.inf), mask_kwargs.get("vmax", np.inf))
