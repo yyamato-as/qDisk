@@ -786,9 +786,9 @@ class FitsImage:
 
         self.shift_phasecenter_toward(peak_coord)
 
-        x, y = self._get_directional_axis(relative=True)
+        # x, y = self._get_directional_axis(relative=True)
 
-        x_ind, y_ind = np.argmin(abs(x)), np.argmin(abs(y))
+        x_ind, y_ind = np.argmin(abs(self.x)), np.argmin(abs(self.y))
 
         # set velocity range
         vrange = (mask_kwargs.get("vmin", -np.inf), mask_kwargs.get("vmax", np.inf))
