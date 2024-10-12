@@ -789,13 +789,16 @@ class FitsImage:
 
         x, y = self._get_directional_axis(relative=False)
 
+        x_ind, y_ind = np.argmin(abs(x - x0)), np.argmin(abs(y - y0))
+
         # set velocity range
         vrange = (mask_kwargs.get("vmin", -np.inf), mask_kwargs.get("vmax", np.inf))
         v = self.v[is_within(self.v, vrange)]
         data = self.data[is_within(self.v, vrange)]
         mask = self.mask[is_within(self.v, vrange)]
 
-        spec = np.squeeze([interp2d(y, x, d * m)(y0, x0) for d, m in zip(data, mask)])
+        # spec = np.squeeze([interp2d(y, x, d * m)(y0, x0) for d, m in zip(data, mask)])
+        spec = (data * mask)[:, y_ind, x_ind]
         std = self.estimate_rms_each_chan(data, mask)
 
         return v, spec, std
