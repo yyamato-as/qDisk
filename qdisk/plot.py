@@ -1701,11 +1701,16 @@ class ChannelMap(FitsImage):
         ax.set_ylabel(ylabel)
 
     def set_labels(self, mode="1", xlabel=None, ylabel=None):
-        self.imgrid.set_label_mode(mode)
+        if mode == "1":
+            self._set_xlabel(self.imgrid.axes_llc, xlabel)
+            self._set_ylabel(self.imgrid.axes_llc, ylabel)
+        
+        else:
+            self.imgrid.set_label_mode(mode)
 
-        for ax in self.imgrid.axes_all:
-            self._set_xlabel(ax, xlabel)
-            self._set_ylabel(ax, ylabel)
+            for ax in self.imgrid.axes_all:
+                self._set_xlabel(ax, xlabel)
+                self._set_ylabel(ax, ylabel)
 
     def _get_major_ticker_locator(self, nticks=None, interval=None):
         if nticks is not None:
