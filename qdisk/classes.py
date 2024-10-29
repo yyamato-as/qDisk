@@ -784,7 +784,7 @@ class FitsImage:
         # peak_coord = SkyCoord(peak_coord, frame=frame)
         # x0, y0 = peak_coord.ra.arcsec, peak_coord.dec.arcsec
 
-        self.shift_phasecenter_toward(peak_coord)
+        self.shift_phasecenter_toward(peak_coord, fix_FOV=True)
 
         # x, y = self._get_directional_axis(relative=True)
 
