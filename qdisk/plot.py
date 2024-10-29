@@ -1465,7 +1465,7 @@ class ChannelMap(FitsImage):
     # def _get_figsize(self):
     #     return (self.ncols * 3, self.nrows * 3)
 
-    def set_imagegrid(self, ncols=None, nrows=None, panelsize=(2.0, 2.0), figsize=None, max_figsize=(12, None), pad=0.1, cbar_mode="bottom right", cbar_label=None):
+    def set_imagegrid(self, ncols=None, nrows=None, panelsize=(2.0, 2.0), figsize=None, max_figsize=(12, None), pad=0.1, cbar_mode="bottom right", cbar_label=None, cbar_size="5%"):
         # setup figure instance
         self.nrows, self.ncols = self.get_nrows_ncols(npanels=self.v.size, ncols=ncols, nrows=nrows, panelsize=panelsize, max_figsize=max_figsize)
         w, h = panelsize
@@ -1480,6 +1480,7 @@ class ChannelMap(FitsImage):
             axes_pad=pad,
             cbar_mode="edge" if cbar_mode == "bottom right" else cbar_mode,
             cbar_location="right",
+            cbar_size=cbar_size
         )
         ### ImageGrid should have param of *ngrids*, but specifying this param cause an error (maybe bug?).
         ### Here is workaround for that, removing axes on which no data are drawn.
