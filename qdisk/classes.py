@@ -777,7 +777,7 @@ class FitsImage:
 
         return rms
 
-    def extract_peak_spectrum(self, peak_coord, **mask_kwargs):
+    def extract_peak_spectrum(self, peak_coord, offset=(0.0, 0.0), **mask_kwargs):
         self.get_mask(**mask_kwargs)
 
         # if isinstance(peak_coord, str):
@@ -785,6 +785,8 @@ class FitsImage:
         # x0, y0 = peak_coord.ra.arcsec, peak_coord.dec.arcsec
 
         self.shift_phasecenter_toward(peak_coord, fix_FOV=True)
+
+        self.shift_phasecenter(*offset)
 
         # x, y = self._get_directional_axis(relative=True)
 
