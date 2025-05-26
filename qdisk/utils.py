@@ -1,6 +1,6 @@
 from astropy.units.quantity import Quantity
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse, AnchoredSizeBar
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import matplotlib.font_manager as fm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.axes as maxes
