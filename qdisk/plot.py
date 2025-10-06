@@ -4,6 +4,8 @@ from .utils import is_within, plot_2D_map, add_beam
 from .model import Keplerian_velocity
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.offsetbox import AuxTransformBox, AnchoredOffsetbox
+from matplotlib.patches import Circle, Ellipse
 from mpl_toolkits.axes_grid1 import ImageGrid
 from astropy.visualization import ImageNormalize, LinearStretch
 from matplotlib import ticker
@@ -318,7 +320,7 @@ class Map(FitsImage):
     ### FANCY ADDENDA STUFF ###
 
     def add_beam(self, beam=None, loc="lower left", color="white", fill=True, hatch="///////////"):
-        from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
+        # from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
 
         if beam is not None:
             bmaj, bmin, pa = beam
@@ -329,17 +331,21 @@ class Map(FitsImage):
             width = self.bmaj
             height = self.bmin
             angle = 90 - self.bpa  # to make measured from east
-        beam = AnchoredEllipse(
-            self.ax.transData,
-            width=width,
-            height=height,
-            angle=angle,
-            loc=loc,
-            pad=0.5,
-            borderpad=0.5,
-            frameon=False,
-        )
-        beam.ellipse.set(color=color, fill=fill, hatch=hatch)
+        
+        ellipse = AuxTransformBox(self.ax.transData)
+        ellipse.add_artist(Ellipse((0, 0), width=width, height=height, angle=angle, color=color, fill=fill, hatch=hatch))
+        beam = AnchoredOffsetbox(child=ellipse, loc="lower left", frameon=False)
+        # beam = AnchoredEllipse(
+        #     self.ax.transData,
+        #     width=width,
+        #     height=height,
+        #     angle=angle,
+        #     loc=loc,
+        #     pad=0.5,
+        #     borderpad=0.5,
+        #     frameon=False,
+        # )
+        # beam.ellipse.set(color=color, fill=fill, hatch=hatch)
         self.ax.add_artist(beam)
 
     def add_scalebar(
