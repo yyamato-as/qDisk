@@ -708,8 +708,34 @@ class WCSMap(Map):
 
     ### FANCY ADDENDA STUFF ###
 
+    # def add_beam(self, beam=None, loc="lower left", color="white", fill=True, hatch="///////////"):
+    #     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
+
+    #     if beam is not None:
+    #         bmaj, bmin, pa = beam
+    #         width = bmaj
+    #         height = bmin
+    #         angle = 90 - pa
+    #     else:
+    #         width = self.bmaj
+    #         height = self.bmin
+    #         angle = 90 - self.bpa  # to make measured from east
+    #     beam = AnchoredEllipse(
+    #         self.ax.transData,
+    #         width=width / self.dpix,
+    #         height=height / self.dpix,
+    #         angle=angle,
+    #         loc=loc,
+    #         pad=0.5,
+    #         borderpad=0.5,
+    #         frameon=False,
+    #     )
+    #     beam.ellipse.set(color=color, fill=fill, hatch=hatch)
+    #     self.ax.add_artist(beam)
+
+    # update on 10/06/2025 for conforming with deprecation of AnchoredEllipse in matplotlib
     def add_beam(self, beam=None, loc="lower left", color="white", fill=True, hatch="///////////"):
-        from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
+        # from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
 
         if beam is not None:
             bmaj, bmin, pa = beam
@@ -720,17 +746,21 @@ class WCSMap(Map):
             width = self.bmaj
             height = self.bmin
             angle = 90 - self.bpa  # to make measured from east
-        beam = AnchoredEllipse(
-            self.ax.transData,
-            width=width / self.dpix,
-            height=height / self.dpix,
-            angle=angle,
-            loc=loc,
-            pad=0.5,
-            borderpad=0.5,
-            frameon=False,
-        )
-        beam.ellipse.set(color=color, fill=fill, hatch=hatch)
+        
+        ellipse = AuxTransformBox(self.ax.transData)
+        ellipse.add_artist(Ellipse((0, 0), width=width / self.dpix, height=height / self.dpix, angle=angle, color=color, fill=fill, hatch=hatch))
+        beam = AnchoredOffsetbox(child=ellipse, loc="lower left", frameon=False)
+        # beam = AnchoredEllipse(
+        #     self.ax.transData,
+        #     width=width,
+        #     height=height,
+        #     angle=angle,
+        #     loc=loc,
+        #     pad=0.5,
+        #     borderpad=0.5,
+        #     frameon=False,
+        # )
+        # beam.ellipse.set(color=color, fill=fill, hatch=hatch)
         self.ax.add_artist(beam)
 
     def add_scalebar(
