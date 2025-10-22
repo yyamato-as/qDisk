@@ -1028,19 +1028,19 @@ class FitsImage:
             peak_coord=peak_coord, **mask_kwargs
         )
 
-        if len(flux_spectrum) == 1:
-            flux = flux_spectrum[0]
-            flux_error = flux_spectrum_error[0]
+        if len(intensity_spectrum) == 1:
+            flux = intensity_spectrum[0]
+            flux_error = intensity_spectrum_error[0]
             if verbose:
                 print("Extracted flux density: {:.3e} Jy/beam".format(flux))
                 print(
                     "Extracted flux density uncertainty: {:.3e} Jy/beam".format(flux_error)
                 )
         else:
-            flux = self.dchan * np.sum(flux_spectrum)
+            flux = self.dchan * np.sum(intensity_spectrum)
             flux_error = (
                 self.dchan
-                * np.sqrt(np.sum(flux_spectrum_error**2))
+                * np.sqrt(np.sum(intensity_spectrum_error**2))
                 * np.sqrt(velocity_resolution)
             )
             if verbose:
