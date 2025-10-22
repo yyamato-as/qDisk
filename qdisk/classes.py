@@ -807,7 +807,10 @@ class FitsImage:
         spec = (data * mask)[:, y_ind, x_ind]
         std = self.estimate_rms_each_chan(data, mask)
 
-        return v, spec, std
+        if self.ndim <= 2:
+            return None, spec, std
+        else:
+            return v, spec, std
 
     def extract_averaged_spectrum(self, user_mask=None, **mask_kwargs):
         self.get_mask(**mask_kwargs)
