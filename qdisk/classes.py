@@ -996,6 +996,55 @@ class FitsImage:
 
         return flux, flux_error
 
+    def extract_intensity(
+        self, rms=None, verbose=True, velocity_resolution=1.0, **mask_kwargs
+    ):
+        """Measure the (velocity-integrated) intensity at the specified coordinate.
+
+        Parameters
+        ----------
+        rms : float, optional
+            RMS noise of the image, by default None. If None, it will be internally calculated over
+            the outside of the mask specified by the mask_kwargs paramaters.
+        verbose : bool, optional
+            Whether the message about the flux denisty will be shown in the terminal, by default True
+        velocity_resolution : float, optional
+            velocity resolution in unit of the channel width which is used to correct for the spectral correlation, by default 1.0.
+
+        Returns
+        -------
+        tuple of two floats
+            (velocity-integrated) flux density and its uncertainty
+        """
+        _, intensity_spectrum, intensity_spectrum_error = self.extract_peak_spectrum(
+            rms=rms, **mask_kwargs
+        )
+
+        if len(flux_spectrum) == 1:
+            flux = flux_spectrum[0]
+            flux_error = flux_spectrum_error[0]
+            if verbose:
+                print("Extracted flux density: {:.3e} Jy".format(flux))
+                print(
+                    "Extracted flux density uncertainty: {:.3e} Jy".format(flux_error)
+                )
+        else:
+            flux = self.dchan * np.sum(flux_spectrum)
+            flux_error = (
+                self.dchan
+                * np.sqrt(np.sum(flux_spectrum_error**2))
+                * np.sqrt(velocity_resolution)
+            )
+            if verbose:
+                print("Extracted integrated flux density: {:.3e} Jy km/s".format(flux))
+                print(
+                    "Extracted integrated flux density uncertainty: {:.3e} Jy km/s".format(
+                        flux_error
+                    )
+                )
+
+        return flux, flux_error
+
     def get_cumulative_flux(
         self, rms=None, PA=0.0, incl=0.0, rmin=0.0, dr="beam", rmax=None, criteria="val"
     ):
