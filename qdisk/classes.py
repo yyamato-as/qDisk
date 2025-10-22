@@ -778,7 +778,7 @@ class FitsImage:
         return rms
 
     def extract_peak_spectrum(self, peak_coord, offset=(0.0, 0.0), **mask_kwargs):
-        self.get_mask(**mask_kwargs)
+        mask = self.get_mask(**mask_kwargs)
 
         # if isinstance(peak_coord, str):
         # peak_coord = SkyCoord(peak_coord, frame=frame)
