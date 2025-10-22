@@ -792,11 +792,16 @@ class FitsImage:
 
         x_ind, y_ind = np.argmin(abs(self.x)), np.argmin(abs(self.y))
 
-        # set velocity range
-        vrange = (mask_kwargs.get("vmin", -np.inf), mask_kwargs.get("vmax", np.inf))
-        v = self.v[is_within(self.v, vrange)]
-        data = self.data[is_within(self.v, vrange)]
-        mask = self.mask[is_within(self.v, vrange)]
+        # expand dimension if ndim <= 2
+        if self.ndim <= 2:
+            data = np.expand_dims(self.data, axis=0)
+            mask = np.expand_dims(mask, axis=0)
+        else:
+            # set velocity range
+            vrange = (mask_kwargs.get("vmin", -np.inf), mask_kwargs.get("vmax", np.inf))
+            v = self.v[is_within(self.v, vrange)]
+            data = self.data[is_within(self.v, vrange)]
+            mask = self.mask[is_within(self.v, vrange)]
 
         # spec = np.squeeze([interp2d(y, x, d * m)(y0, x0) for d, m in zip(data, mask)])
         spec = (data * mask)[:, y_ind, x_ind]
