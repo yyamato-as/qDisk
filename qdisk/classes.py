@@ -997,7 +997,7 @@ class FitsImage:
         return flux, flux_error
 
     def extract_intensity(
-        self, rms=None, verbose=True, velocity_resolution=1.0, **mask_kwargs
+        self, peak_coord, offset=(0, 0), verbose=True, velocity_resolution=1.0, **mask_kwargs
     ):
         """Measure the (velocity-integrated) intensity at the specified coordinate.
 
@@ -1017,16 +1017,16 @@ class FitsImage:
             (velocity-integrated) flux density and its uncertainty
         """
         _, intensity_spectrum, intensity_spectrum_error = self.extract_peak_spectrum(
-            rms=rms, **mask_kwargs
+            peak_coord=peak_coord, **mask_kwargs
         )
 
         if len(flux_spectrum) == 1:
             flux = flux_spectrum[0]
             flux_error = flux_spectrum_error[0]
             if verbose:
-                print("Extracted flux density: {:.3e} Jy".format(flux))
+                print("Extracted flux density: {:.3e} Jy/beam".format(flux))
                 print(
-                    "Extracted flux density uncertainty: {:.3e} Jy".format(flux_error)
+                    "Extracted flux density uncertainty: {:.3e} Jy/beam".format(flux_error)
                 )
         else:
             flux = self.dchan * np.sum(flux_spectrum)
@@ -1036,9 +1036,9 @@ class FitsImage:
                 * np.sqrt(velocity_resolution)
             )
             if verbose:
-                print("Extracted integrated flux density: {:.3e} Jy km/s".format(flux))
+                print("Extracted integrated flux density: {:.3e} Jy/beam km/s".format(flux))
                 print(
-                    "Extracted integrated flux density uncertainty: {:.3e} Jy km/s".format(
+                    "Extracted integrated flux density uncertainty: {:.3e} Jy/beam km/s".format(
                         flux_error
                     )
                 )
