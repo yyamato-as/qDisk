@@ -784,7 +784,7 @@ class FitsImage:
         # peak_coord = SkyCoord(peak_coord, frame=frame)
         # x0, y0 = peak_coord.ra.arcsec, peak_coord.dec.arcsec
 
-        self.shift_phasecenter_toward(peak_coord, fix_FOV=True)
+        self.shift_phasecenter_toward(peak_coord, fix_FOV=False)
 
         self.shift_phasecenter(*offset)
 
@@ -808,10 +808,7 @@ class FitsImage:
         if rms is None:
             std = self.estimate_rms_each_chan(data, mask)
         else:
-            if self.ndim <= 2:
-                std = rms
-            else:
-                std = np.array([rms]*data.shape[0])
+            std = np.array([rms]*data.shape[0])
 
         if self.ndim <= 2:
             return None, spec, std
