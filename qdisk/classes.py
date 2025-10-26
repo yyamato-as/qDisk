@@ -777,7 +777,7 @@ class FitsImage:
 
         return rms
 
-    def extract_peak_spectrum(self, peak_coord, offset=(0.0, 0.0), **mask_kwargs):
+    def extract_peak_spectrum(self, peak_coord, offset=(0.0, 0.0), rms=None, **mask_kwargs):
         mask = self.get_mask(**mask_kwargs)
 
         # if isinstance(peak_coord, str):
@@ -805,7 +805,13 @@ class FitsImage:
 
         # spec = np.squeeze([interp2d(y, x, d * m)(y0, x0) for d, m in zip(data, mask)])
         spec = (data * mask)[:, y_ind, x_ind]
-        std = self.estimate_rms_each_chan(data, mask)
+        if rms is None:
+            std = self.estimate_rms_each_chan(data, mask)
+        else:
+            if self.ndim <= 2:
+                std = rms
+            else:
+                std = np.array([rms]*data.shape[0])
 
         if self.ndim <= 2:
             return None, spec, std
