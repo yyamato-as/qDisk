@@ -1659,7 +1659,7 @@ class ChannelMap(FitsImage):
             )
 
     def _pcolorfast(self, ax, data, cmap="viridis", norm=None):
-        im = ax.pcolorfast(self.x, self.y, data, rasterized=True, cmap=cmap, norm=norm)
+        im = ax.pcolorfast((self.x.min(), self.x.max()), (self.y.min(), self.y.max()), data, rasterized=True, cmap=cmap, norm=norm)
         return im
 
     def _normalize(self, vmin=None, vmax=None, interval=None, stretch=LinearStretch()):
