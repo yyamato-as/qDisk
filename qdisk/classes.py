@@ -540,7 +540,7 @@ class FitsImage:
         self._downsample_spectral(Nv)
 
     def restore_original_cube(self, rel_dir_ax=True, squeeze=True):
-        self.data = fits.getdata(self.fitsname)
+        self.data = fits.getdata(self.fitsname, hdu=hdu)
         if squeeze:
             self.data = np.squeeze(self.data)
 
