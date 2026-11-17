@@ -335,11 +335,12 @@ class FitsImage:
         nu0=None,
         downsample=False,
         skipdata=False,
+        hdu=0
     ):
         self.fitsname = fitsname
 
         # header
-        self.header = fits.getheader(fitsname)
+        self.header = fits.getheader(fitsname, hdu=hdu)
 
         # read header
         # self.ndim = self.header["NAXIS"]
@@ -352,7 +353,7 @@ class FitsImage:
 
         if not skipdata:
             # data
-            self.data = fits.getdata(fitsname)
+            self.data = fits.getdata(fitsname, hdu=hdu)
             if squeeze:
                 self.data = np.squeeze(self.data)
 
