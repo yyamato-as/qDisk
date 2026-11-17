@@ -335,12 +335,12 @@ class FitsImage:
         nu0=None,
         downsample=False,
         skipdata=False,
-        hdu=0
+        ext=0
     ):
         self.fitsname = fitsname
 
         # header
-        self.header = fits.getheader(fitsname, hdu=hdu)
+        self.header = fits.getheader(fitsname, ext=ext)
 
         # read header
         # self.ndim = self.header["NAXIS"]
@@ -353,7 +353,7 @@ class FitsImage:
 
         if not skipdata:
             # data
-            self.data = fits.getdata(fitsname, hdu=hdu)
+            self.data = fits.getdata(fitsname, ext=ext)
             if squeeze:
                 self.data = np.squeeze(self.data)
 
@@ -540,7 +540,7 @@ class FitsImage:
         self._downsample_spectral(Nv)
 
     def restore_original_cube(self, rel_dir_ax=True, squeeze=True):
-        self.data = fits.getdata(self.fitsname, hdu=hdu)
+        self.data = fits.getdata(self.fitsname, ext=ext)
         if squeeze:
             self.data = np.squeeze(self.data)
 

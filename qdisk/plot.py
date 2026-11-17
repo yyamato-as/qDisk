@@ -33,7 +33,7 @@ class Map(FitsImage):
         ax=None,
         data_scaling_factor=1.0,
         center_coord=None,
-        hdu=0,
+        ext=0,
         xlim=None,
         ylim=None,
         downsample=False,
@@ -48,7 +48,7 @@ class Map(FitsImage):
                 xlim=xlim,
                 ylim=ylim,
                 downsample=downsample,
-                hdu=hdu
+                ext=ext
             )
 
         else:
